@@ -18,7 +18,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh">
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
         <div className="flex items-center gap-3 px-5 py-6">
-          <img src={noa} alt="נועה" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-2 ring-sidebar-primary" />
+          <img
+            src={noa}
+            alt="נועה"
+            width={44}
+            height={44}
+            className="h-11 w-11 rounded-full object-cover ring-2 ring-sidebar-primary"
+          />
           <div>
             <div className="font-display text-lg font-bold leading-tight">ח. סבן</div>
             <div className="text-xs opacity-70">מערכת נועה · ללא נייר</div>
@@ -26,7 +32,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-1 px-3">
           {NAV.map(({ to, label, icon: I }) => (
-            <Link key={to} to={to} className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${active(to) ? "bg-sidebar-accent text-sidebar-accent-foreground" : "opacity-75 hover:opacity-100"}`}>
+            <Link
+              key={to}
+              to={to}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${active(to) ? "bg-sidebar-accent text-sidebar-accent-foreground" : "opacity-75 hover:opacity-100"}`}
+            >
               <I className={`h-5 w-5 ${active(to) ? "text-sidebar-primary" : ""}`} /> {label}
             </Link>
           ))}
@@ -36,7 +46,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="min-w-0 flex-1 pb-24 md:pb-0">{children}</main>
       <nav className="glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t pb-safe md:hidden">
         {NAV.map(({ to, label, icon: I }) => (
-          <Link key={to} to={to} className={`flex flex-col items-center gap-1 pt-2 text-[11px] font-semibold ${active(to) ? "text-primary" : "text-muted-foreground"}`}>
+          <Link
+            key={to}
+            to={to}
+            className={`flex flex-col items-center gap-1 pt-2 text-[11px] font-semibold ${active(to) ? "text-primary" : "text-muted-foreground"}`}
+          >
             <I className="h-6 w-6" /> {label}
           </Link>
         ))}
@@ -45,7 +59,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+}) {
   return (
     <header className="pt-safe sticky top-0 z-30 glass border-b">
       <div className="mx-auto flex max-w-6xl items-end justify-between gap-3 px-4 py-4 md:px-8">
@@ -60,6 +82,14 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 }
 
 export function StatusPill({ s }: { s: "ok" | "warn" | "fail" }) {
-  const m = { ok: ["bg-success/15 text-success", "🟢 מאומת"], warn: ["bg-warning/25 text-warning-foreground", "⚠️ חריגה"], fail: ["bg-destructive/15 text-destructive", "🔴 נכשל"] }[s];
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${m[0]}`}>{m[1]}</span>;
+  const m = {
+    ok: ["bg-success/15 text-success", "🟢 מאומת"],
+    warn: ["bg-warning/25 text-warning-foreground", "⚠️ חריגה"],
+    fail: ["bg-destructive/15 text-destructive", "🔴 נכשל"],
+  }[s];
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${m[0]}`}>
+      {m[1]}
+    </span>
+  );
 }
