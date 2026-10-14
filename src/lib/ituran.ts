@@ -2,14 +2,14 @@ import type { AuditStatus, DeliveryNote } from "./data";
 
 export type GpsStop = { plate: string; address: string; arrive: string; depart: string };
 
-const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
 
 export const DWELL_RULES = { crane: [25, 45], flatbed: [15, 25] } as const;
 
 /** Cross-match one delivery note against GPS stops. */
 export function crossMatch(note: Pick<DeliveryNote, "site" | "signedAt">, kind: "crane" | "flatbed", plate: string, stops: GpsStop[]):
   { status: AuditStatus; dwell: number | null; label: string; stop?: GpsStop } {
-  const street = note.site.split(",")[0].replace(/רח׳|שד׳/g, "").trim().split(" ")[0];
+  const street = (note.site.split(",")[0] ?? "").replace(/רח׳|שד׳/g, "").trim().split(" ")[0] ?? "";
   const stop = stops.find((s) => s.plate.replace(/\D/g, "") === plate.replace(/\D/g, "") && s.address.includes(street));
   if (!stop) return { status: "fail", dwell: null, label: "🔴 רכב לא שהה בכתובת" };
   const dwell = toMin(stop.depart) - toMin(stop.arrive);

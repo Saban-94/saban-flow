@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export type Approval = { rami?: { at: string; note?: string }; harel?: { at: string; note?: string }; closed?: string };
+export type Approval = { rami?: { at: string; note?: string | undefined }; harel?: { at: string; note?: string | undefined }; closed?: string };
 type State = Record<string, Approval>;
 
 let state: State = {};

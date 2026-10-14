@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 type Msg = { role: "user" | "assistant"; content: string };
 
 async function callGateway(instructions: string, input: Msg[]): Promise<string> {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = process.env['LOVABLE_API_KEY'];
   if (!key) throw new Error("AI לא מוגדר");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
