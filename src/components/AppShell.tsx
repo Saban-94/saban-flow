@@ -1,410 +1,212 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
-import {
-  Crown,
-  FileText,
-  Satellite,
-  ClipboardList,
-  MessageCircle,
-  Users,
-  Volume2,
-  BellRing,
-  Truck,
-  CheckCircle2,
-  AlertCircle,
-  Send,
-  Sparkles,
-} from "lucide-react";
-import noa from "@/assets/noa.jpg";
-import { PWAInstallButton } from "./PWAInstallButton";
-import { useQuery } from "@tanstack/react-query";
+import React, { useRef, useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, FileText, Image as ImageIcon, Send, ShieldCheck, UserCheck } from "lucide-react";
 
-import { playDispatchChime, playUrgentSignatureAlarm } from "@/lib/audio-alerts";
-import { toast } from "sonner";
-import { useApprovals } from "@/lib/store";
-import { NOTES, fetchNotes, type DeliveryNote } from "@/lib/data";
+interface DeliveryCanvasEditorProps {
+  imageSrc: string;
+  stampSrc?: string;
+  onSaveToFolder: (finalDataUrl: string) => Promise<void> | void;
+  onUpdateSheetLog: (status: string) => Promise<void> | void;
+}
 
-const DESKTOP_NAV = [
-  { to: "/", label: "דשבורד מנכ״ל", icon: Crown },
-  { to: "/orders", label: "הזמנות חיות", icon: ClipboardList },
-  { to: "/notes", label: "תעודות משלוח", icon: FileText },
-  { to: "/customers", label: "תיקי לקוחות", icon: Users },
-  { to: "/ituran", label: "איתוראן GPS", icon: Satellite },
-  { to: "/chat", label: "צ'אט נועה AI", icon: MessageCircle },
-] as const;
+export default function DeliveryCanvasEditor({
+  imageSrc,
+  stampSrc,
+  onSaveToFolder,
+  onUpdateSheetLog,
+}: DeliveryCanvasEditorProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [mode, setMode] = useState<'highlight' | 'text' | 'stamp'>('highlight');
+  const [textInput, setTextInput] = useState('');
+  const [workflowStatus, setWorkflowStatus] = useState<'rami_review' | 'secondary_review' | 'harel_approved'>('rami_review');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isDrawing = useRef(false);
 
-const MOBILE_NAV = [
-  { to: "/", label: "מצב", icon: Crown },
-  { to: "/orders", label: "הזמנות", icon: Truck },
-  { to: "/notes", label: "תעודות", icon: FileText },
-  { to: "/customers", label: "לקוחות", icon: Users },
-  { to: "/chat", label: "נועה", icon: MessageCircle },
-] as const;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  const approvalsState = useApprovals();
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = imageSrc;
+    img.onload = () => {
+      canvas.width = img.width || 800;
+      canvas.height = img.height || 1050;
+      ctx.drawImage(img, 0, 0);
+    };
+  }, [imageSrc]);
 
-  const [quickInput, setQuickInput] = useState("");
-  const [quickMessages, setQuickMessages] = useState<
-    { sender: "noa" | "user"; text: string; time: string }[]
-  >([
-    {
-      sender: "noa",
-      text: "בוקר טוב ראמי והראל! 🚚 כל 5 המשאיות שובצו. מחכה לבדיקת 3 תעודות מול איתוראן.",
-      time: "07:45",
-    },
-  ]);
+  // ציור מרקר צהוב שקוף
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode !== 'highlight') return;
+    isDrawing.current = true;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-  const active = (to: string) => (to === "/" ? pathname === "/" : pathname.startsWith(to));
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  };
 
-  const triggerHaptic = () => {
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(20);
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing.current || mode !== 'highlight') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    ctx.strokeStyle = 'rgba(255, 235, 59, 0.45)'; // מרקר צהוב שקוף
+    ctx.lineWidth = 24;
+    ctx.lineCap = 'round';
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    isDrawing.current = false;
+  };
+
+  // הוספת טקסט לקנבס
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode !== 'text' || !textInput) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    ctx.font = 'bold 16px Hebrew, Arial, sans-serif';
+    ctx.fillStyle = '#b91c1c'; // אדום בולט להערות בדיקה
+    ctx.fillText(textInput, e.clientX - rect.left, e.clientY - rect.top);
+    setTextInput('');
+  };
+
+  // הוספת חותמת תמונה
+  const handleAddStamp = () => {
+    if (!stampSrc) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const stampImg = new Image();
+    stampImg.crossOrigin = 'anonymous';
+    stampImg.src = stampSrc;
+    stampImg.onload = () => {
+      ctx.drawImage(stampImg, canvas.width - 220, canvas.height - 180, 160, 110);
+    };
+  };
+
+  // תהליך עבודה ושמירה מודרג
+  const handleCompleteWorkflowStep = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setIsSubmitting(true);
+
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+
+      if (workflowStatus === 'rami_review') {
+        setWorkflowStatus('secondary_review');
+        await onUpdateSheetLog('בדיקת ראמי הושלמה - ממתין לבדיקה נוספת');
+      } else if (workflowStatus === 'secondary_review') {
+        setWorkflowStatus('harel_approved');
+        await onUpdateSheetLog('נשלח להראל מנכ״ל לאישור סופי');
+      } else {
+        await onSaveToFolder(dataUrl);
+        await onUpdateSheetLog('אושר סופית ע״י הראל ונשמר בתיקיית הלקוח ב־Drive');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleSendQuickNoa = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickInput.trim()) return;
-    const now = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-    const userText = quickInput;
-    setQuickMessages((prev) => [...prev, { sender: "user", text: userText, time: now }]);
-    setQuickInput("");
-    void playDispatchChime(0.7);
-
-    setTimeout(() => {
-      const response = userText.includes("חכמת")
-        ? "חכמת סיים פריקה בנח 3 ת״א (38 דק׳ שהייה). בדרך למחסן 4 החרש 10 להעמסה הבאה 🟢"
-        : userText.includes("עלי")
-          ? "עלי פלטה סיים הוד השרון, בנסיעה לכיוון יפו אספקה שנייה 🚚"
-          : "ההודעה תועדה ביומן הסידור! תעודות משלוח עדכניות ממתינות לאישור הראל ✍️";
-      setQuickMessages((prev) => [
-        ...prev,
-        {
-          sender: "noa",
-          text: response,
-          time: new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      void playDispatchChime(0.8);
-    }, 600);
-  };
-
-  const { data: notes = NOTES } = useQuery<DeliveryNote[]>({
-    queryKey: ["delivery-notes"],
-    queryFn: fetchNotes,
-    initialData: NOTES,
-    staleTime: 30000,
-  });
-
-  // Recent audit log entries
-  const readyNotesCount = notes.filter(
-    (n) => approvalsState[n.id]?.rami && !approvalsState[n.id]?.harel,
-  ).length;
-
   return (
-    <div className="flex min-h-dvh bg-background">
-      {/* 1. Desktop Right Sidebar (240px Navigation) */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col justify-between border-l border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
-        <div>
-          {/* Brand Header */}
-          <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border/40">
-            <div className="relative">
-              <img
-                src={noa}
-                alt="נועה AI"
-                width={44}
-                height={44}
-                className="h-11 w-11 rounded-full object-cover ring-2 ring-emerald-500 shadow-sm"
-              />
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-sidebar" />
-            </div>
-            <div>
-              <div className="font-display text-base font-bold leading-tight">Saban Flow</div>
-              <div className="text-[11px] text-sidebar-foreground/70">
-                ח. סבן · לוגיסטיקה ללא נייר
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="flex flex-col gap-1 px-3 py-4">
-            {DESKTOP_NAV.map(({ to, label, icon: I }) => {
-              const isCurrent = active(to);
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${
-                    isCurrent
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-xs"
-                      : "opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <I className={`h-4.5 w-4.5 ${isCurrent ? "text-sidebar-primary" : ""}`} />
-                    <span>{label}</span>
-                  </div>
-                  {to === "/" && readyNotesCount > 0 && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ceo text-[10px] font-bold text-white">
-                      {readyNotesCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Audio Chime Testing Tools */}
-          <div className="mx-3 mt-2 rounded-2xl bg-sidebar-accent/40 p-3 border border-sidebar-border/60 space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-sidebar-foreground/80">
-              <span className="flex items-center gap-1.5">
-                <BellRing className="h-3.5 w-3.5 text-amber-400" />
-                <span>התראות שמע מובייל</span>
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
-              <button
-                onClick={() => {
-                  void playDispatchChime(0.8);
-                  toast.info("הושמע צלצול סידור (Two-Tone Chime) 🚚");
-                }}
-                className="flex items-center justify-center gap-1 rounded-xl bg-sidebar-accent py-1.5 text-[10px] font-bold text-sidebar-foreground/90 hover:bg-sidebar-accent/80 transition"
-                title="בדוק צליל קשר / התראה"
-              >
-                <Volume2 className="h-3 w-3 text-emerald-400" />
-                <span>צליל סידור</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  playUrgentSignatureAlarm();
-                  toast.warning("הושמעה אזעקת חתימת מנכ״ל דחופה 👑");
-                }}
-                className="flex items-center justify-center gap-1 rounded-xl bg-ceo/80 py-1.5 text-[10px] font-bold text-white hover:bg-ceo transition"
-                title="בדוק אזעקת חתימת מנכ״ל"
-              >
-                <BellRing className="h-3 w-3 text-amber-200" />
-                <span>אזעקת מנכ״ל</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Area: PWA Install & Company Details */}
-        <div className="p-3 border-t border-sidebar-border/40 space-y-2">
-          <PWAInstallButton variant="nav" />
-          <div className="px-2 pt-1 text-[10px] opacity-60 text-center">
-            ח. סבן חומרי בניין (1994) בע״מ
-          </div>
-        </div>
-      </aside>
-
-      {/* 2. Main Middle Workspace (Flexible 1fr) */}
-      <main className="min-w-0 flex-1 pb-24 md:pb-6">{children}</main>
-
-      {/* 3. Desktop Left Sidebar: Live Noa AI Dispatch & Audit Log (340px on xl screens) */}
-      <aside className="sticky top-0 hidden h-dvh w-80 shrink-0 flex-col border-r border-border/70 bg-card p-4 xl:flex">
-        {/* Noa AI Dispatcher Status Header */}
-        <div className="flex items-center justify-between border-b pb-3.5">
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              <img
-                src={noa}
-                alt="נועה AI"
-                className="h-10 w-10 rounded-full object-cover ring-2 ring-emerald-500"
-              />
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
-            </div>
-            <div>
-              <div className="font-display text-xs font-extrabold flex items-center gap-1">
-                <span>נועה ❤️</span>
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  | יד ימינו של ראמי
-                </span>
-              </div>
-              <div className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>סדרנית מחוברת לפקודות</span>
-              </div>
-            </div>
-          </div>
-
-          <Link
-            to="/chat"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition"
-            title="פתח צ'אט מלא"
-          >
-            <Sparkles className="h-4 w-4" />
-          </Link>
-        </div>
-
-        {/* Mini Chat / Dispatch Feed */}
-        <div className="mt-3 flex-1 flex flex-col justify-between overflow-hidden">
-          <div className="flex-1 space-y-2.5 overflow-y-auto pr-1 text-xs">
-            {quickMessages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex flex-col ${msg.sender === "user" ? "items-start" : "items-end"}`}
-              >
-                <div
-                  className={`max-w-[90%] rounded-2xl px-3 py-2 text-xs leading-relaxed shadow-xs ${
-                    msg.sender === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-xs"
-                      : "bg-muted/80 text-foreground rounded-bl-xs border border-border/50"
-                  }`}
-                >
-                  {msg.text}
-                </div>
-                <span className="mt-0.5 text-[10px] text-muted-foreground px-1">{msg.time}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Quick Chat Input */}
-          <form
-            onSubmit={handleSendQuickNoa}
-            className="mt-2 pt-2 border-t flex items-center gap-1.5"
-          >
-            <input
-              type="text"
-              placeholder="שאל את נועה (למשל: איפה חכמת?)..."
-              value={quickInput}
-              onChange={(e) => setQuickInput(e.target.value)}
-              className="flex-1 rounded-xl bg-muted/60 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
-            />
-            <button
-              type="submit"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs hover:opacity-90"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
-          </form>
-        </div>
-
-        {/* Live System Audit Log */}
-        <div className="mt-4 border-t pt-3 space-y-2">
-          <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-            <span>יומן פעולות חי (Audit Log)</span>
-            <span className="flex items-center gap-1 text-emerald-600">
-              <CheckCircle2 className="h-3 w-3" /> מסונכרן
-            </span>
-          </div>
-
-          <div className="space-y-1.5 text-[11px] max-h-48 overflow-y-auto">
-            {notes.slice(0, 4).map((n) => {
-              const b = n.deposits?.bales60002 || { delivered: 0, billed: 0 };
-              const p = n.deposits?.pallets60060 || { delivered: 0, billed: 0 };
-              const isBaleMatched = b.delivered === b.billed;
-              const isPalletMatched = p.delivered === p.billed;
-              const yardParts = (n.yard || "").split(" ");
-
-              return (
-                <div
-                  key={n.id}
-                  className="rounded-xl bg-muted/40 p-2.5 flex items-start gap-2 border border-border/40 hover:bg-muted/60 transition"
-                >
-                  <div className="shrink-0 mt-0.5">
-                    {n.gps?.status === "ok" ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    ) : (
-                      <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-foreground truncate">{n.customer}</span>
-                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">
-                        #{n.id}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-primary font-semibold">
-                      קומקס #{n.comaxOrder || n.id} · {yardParts[0] || ""} {yardParts[1] || ""}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      פקדונות 1:1: {b.delivered} בלות {isBaleMatched ? "✓" : "⚠️"} · {p.delivered}{" "}
-                      משטחים {isPalletMatched ? "✓" : "⚠️"}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground italic">
-                      איתוראן: {n.gps?.note || "ללא הערה"}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
-
-      {/* 4. Mobile Bottom Tab Bar (5 Accessible Icons with Haptic Feedback) */}
-      <nav className="glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border/70 pb-safe md:hidden shadow-lg backdrop-blur-md">
-        {MOBILE_NAV.map(({ to, label, icon: I }) => {
-          const isCurrent = active(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              onClick={triggerHaptic}
-              className={`flex flex-col items-center gap-1 pt-2 pb-1.5 text-[11px] font-bold transition active:scale-95 ${
-                isCurrent ? "text-primary" : "text-muted-foreground/80 hover:text-foreground"
-              }`}
-            >
-              <div className="relative">
-                <I className={`h-5.5 w-5.5 ${isCurrent ? "stroke-[2.5]" : "stroke-2"}`} />
-                {to === "/" && readyNotesCount > 0 && (
-                  <span className="absolute -top-1 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-ceo text-[9px] font-extrabold text-white">
-                    {readyNotesCount}
-                  </span>
-                )}
-              </div>
-              <span>{label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
-  );
-}
-
-export function PageHeader({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <header className="pt-safe sticky top-0 z-30 glass border-b border-border/60">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 md:px-8">
-        <div>
-          <h1 className="text-xl font-bold md:text-2xl text-foreground">{title}</h1>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+    <Card className="p-6 flex flex-col items-center gap-5 bg-card border-border/80 shadow-sm rounded-2xl max-w-4xl mx-auto">
+      {/* סרגל חיווי סטטוס תהליך העבודה */}
+      <div className="w-full flex items-center justify-between bg-muted/50 p-3.5 rounded-xl border border-border/60 text-xs">
+        <div className="flex items-center gap-2 font-bold">
+          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+          <span>שרשרת אישורים:</span>
         </div>
         <div className="flex items-center gap-2">
-          {action}
-          <div className="md:hidden">
-            <PWAInstallButton variant="compact" />
-          </div>
+          <Badge variant={workflowStatus === 'rami_review' ? 'default' : 'secondary'} className="gap-1">
+            <UserCheck className="h-3 w-3" /> 1. בדיקת ראמי
+          </Badge>
+          <span>←</span>
+          <Badge variant={workflowStatus === 'secondary_review' ? 'default' : 'secondary'} className="gap-1">
+            <FileText className="h-3 w-3" /> 2. בדיקה נוספת
+          </Badge>
+          <span>←</span>
+          <Badge variant={workflowStatus === 'harel_approved' ? 'default' : 'secondary'} className="gap-1">
+            <CheckCircle2 className="h-3 w-3" /> 3. אישור הראל
+          </Badge>
         </div>
       </div>
-    </header>
-  );
-}
 
-export function StatusPill({ s }: { s: "ok" | "warn" | "fail" }) {
-  const m = {
-    ok: ["bg-emerald-500/15 text-emerald-700 border border-emerald-500/30", "🟢 מאומת 100%"],
-    warn: ["bg-amber-500/20 text-amber-800 border border-amber-500/40", "⚠️ חריגה"],
-    fail: ["bg-destructive/15 text-destructive border border-destructive/30", "🔴 נכשל"],
-  }[s];
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${m[0]}`}
-    >
-      {m[1]}
-    </span>
+      {/* כלי עריכה לקנבס */}
+      <div className="flex flex-wrap items-center justify-center gap-2.5 w-full">
+        <Button
+          variant={mode === 'highlight' ? 'default' : 'outline'}
+          onClick={() => setMode('highlight')}
+          className="rounded-xl font-bold text-xs"
+        >
+          🟡 מרקר צהוב
+        </Button>
+        <Button
+          variant={mode === 'text' ? 'default' : 'outline'}
+          onClick={() => setMode('text')}
+          className="rounded-xl font-bold text-xs"
+        >
+          ✍️ הוספת הערת טקסט
+        </Button>
+        {stampSrc && (
+          <Button variant="outline" onClick={handleAddStamp} className="rounded-xl font-bold text-xs">
+            <ImageIcon className="h-3.5 w-3.5 ml-1.5" /> הטבע חותמת
+          </Button>
+        )}
+        <Button
+          disabled={isSubmitting}
+          onClick={handleCompleteWorkflowStep}
+          className="rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white mr-auto gap-1.5"
+        >
+          <Send className="h-3.5 w-3.5" />
+          {workflowStatus === 'rami_review' && 'אשר שלב ראמי ושלח להמשך בדיקה'}
+          {workflowStatus === 'secondary_review' && 'שלח לאישור סופי של הראל'}
+          {workflowStatus === 'harel_approved' && 'שמור בתיקיית לקוח ותיעד בגיליון'}
+        </Button>
+      </div>
+
+      {mode === 'text' && (
+        <div className="w-full max-w-md">
+          <input
+            type="text"
+            placeholder="הקלד הערה, לחץ על מקום בתעודה להטבעה..."
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            className="w-full rounded-xl bg-muted/60 px-3.5 py-2.5 text-xs border border-border/70 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      )}
+
+      {/* משטח הקנבס עצמו */}
+      <div className="border border-border rounded-xl shadow-md overflow-hidden bg-white max-w-full cursor-crosshair">
+        <canvas
+          ref={canvasRef}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onClick={handleCanvasClick}
+          className="max-w-full h-auto block mx-auto"
+        />
+      </div>
+    </Card>
   );
 }
