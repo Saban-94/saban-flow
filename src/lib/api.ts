@@ -129,10 +129,30 @@ export async function fetchOrders(): Promise<Order[]> {
 export const fetchLiveOrders = fetchOrders;
 
 export async function fetchGps(): Promise<GpsStop[]> {
-  const cached = getFromStorage<GpsStop[]>(CACHE_KEY_GPS, DEFAULT_GPS_STOPS);
+  const normalizeStops = (list: any[]): GpsStop[] => {
+    if (!Array.isArray(list)) return DEFAULT_GPS_STOPS;
+    const mapped = list
+      .map((r) => {
+        if (!r || typeof r !== "object") return null;
+        const plate = String(r.plate || r["מספר רישוי"] || r["רכב"] || "").trim();
+        const address = String(r.address || r["כתובת לקוח מאותרת"] || r["כתובת"] || "").trim();
+        const rawArrive = String(r.arrive || r["שעת כניסה לגדר"] || r["שעת כניסה"] || "08:00");
+        const rawDepart = String(r.depart || r["שעת יציאה מגדר"] || r["שעת יציאה"] || "08:30");
+        const arrive = (rawArrive.match(/\d{1,2}:\d{2}/)?.[0] ?? "08:00").padStart(5, "0");
+        const depart = (rawDepart.match(/\d{1,2}:\d{2}/)?.[0] ?? "08:30").padStart(5, "0");
+        return plate ? { plate, address, arrive, depart } : null;
+      })
+      .filter((s): s is GpsStop => Boolean(s && s.plate));
+
+    return mapped.length > 0 ? mapped : DEFAULT_GPS_STOPS;
+  };
+
+  const rawCached = getFromStorage<any[]>(CACHE_KEY_GPS, DEFAULT_GPS_STOPS);
+  const cached = normalizeStops(rawCached);
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(`${API_BASE}?action=getGps&sheetId=${MASTER_SHEET_ID}`, {
       method: "GET",
@@ -142,16 +162,18 @@ export async function fetchGps(): Promise<GpsStop[]> {
 
     if (res.ok) {
       const data = await res.json();
-      const stops = Array.isArray(data) ? data : data?.data;
-      if (stops && stops.length > 0) {
-        setToStorage(CACHE_KEY_GPS, stops);
-        return stops;
+      const rawStops = Array.isArray(data) ? data : data?.data;
+      if (Array.isArray(rawStops) && rawStops.length > 0) {
+        const cleanStops = normalizeStops(rawStops);
+        setToStorage(CACHE_KEY_GPS, cleanStops);
+        return cleanStops;
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn("[API] fetchGps fallback to normalized cache:", err);
+  }
   return cached;
 }
-
 export async function fetchCustomers(): Promise<CustomerProfile[]> {
   const cached = getFromStorage<CustomerProfile[]>(CACHE_KEY_CUSTOMERS, DEFAULT_CUSTOMERS);
   try {
