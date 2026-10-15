@@ -8,7 +8,6 @@ import {
 import { CUSTOMERS as DEFAULT_CUSTOMERS, type CustomerProfile } from "./customers-data";
 import { SAMPLE_STOPS as DEFAULT_GPS_STOPS, type GpsStop } from "./ituran";
 
-// ה-URL הפעיל והחי של ה-Web App החדש
 export const API_BASE =
   "https://script.google.com/macros/s/AKfycbxEh-IMCSHCmiM93UhBVm65X62RN1-5EOQy_NmR6p2RBa0p2wO3Ea1ZivDtFLW4tKKQ/exec";
 
@@ -73,17 +72,27 @@ export async function fetchNotes(): Promise<DeliveryNote[]> {
       let remoteNotes: DeliveryNote[] | null = null;
       if (Array.isArray(data) && data.length > 0) {
         remoteNotes = data;
+      } else if (data && typeof data === "object" && Array.isArray((data as { notes?: unknown[] }).notes)) {
+        remoteNotes = (data as { notes: DeliveryNote[] }).notes;
       } else if (data && typeof data === "object" && Array.isArray((data as { data?: unknown[] }).data)) {
         remoteNotes = (data as { data: DeliveryNote[] }).data;
       }
 
       if (remoteNotes && remoteNotes.length > 0) {
-        setToStorage(CACHE_KEY_NOTES, remoteNotes);
-        return remoteNotes;
+        const merged = remoteNotes.map((rn) => {
+          const matchDefault = DEFAULT_NOTES.find((dn) => dn.id === rn.id);
+          return {
+            ...matchDefault,
+            ...rn,
+            scans: rn.scans && rn.scans.length > 0 ? rn.scans : matchDefault?.scans || [],
+          };
+        });
+        setToStorage(CACHE_KEY_NOTES, merged);
+        return merged;
       }
     }
   } catch (err) {
-    console.warn("[API] fetchNotes fallback to cache:", err);
+    console.warn("[API] fetchNotes error, using cached notes:", err);
   }
   return cached && cached.length > 0 ? cached : DEFAULT_NOTES;
 }
@@ -112,7 +121,7 @@ export async function fetchOrders(): Promise<Order[]> {
       }
     }
   } catch (err) {
-    console.warn("[API] fetchOrders fallback to cache:", err);
+    console.warn("[API] fetchOrders error, using cached orders:", err);
   }
   return cached && cached.length > 0 ? cached : DEFAULT_ORDERS;
 }
@@ -217,4 +226,27 @@ export async function submitApproval(
     return { success: true, offlineQueued: true };
   }
   return { success: true };
+}
+
+/**
+ * Flush any queued offline approvals when network becomes available.
+ */
+export async function flushPendingApprovals(): Promise<void> {
+  if (typeof window === "undefined" || !navigator.onLine) return;
+  const pending = getFromStorage<ApprovalPayload[]>(PENDING_APPROVALS_KEY, []);
+  if (!pending || pending.length === 0) return;
+
+  const remaining: ApprovalPayload[] = [];
+  for (const item of pending) {
+    try {
+      await fetch(API_BASE, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(item),
+      });
+    } catch {
+      remaining.push(item);
+    }
+  }
+  setToStorage(PENDING_APPROVALS_KEY, remaining);
 }
