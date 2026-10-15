@@ -10,6 +10,7 @@ import {
   Volume2,
   BellRing,
   Truck,
+  Edit3,
   CheckCircle2,
   AlertCircle,
   Send,
@@ -28,6 +29,7 @@ const DESKTOP_NAV = [
   { to: "/", label: "דשבורד מנכ״ל", icon: Crown },
   { to: "/orders", label: "הזמנות חיות", icon: ClipboardList },
   { to: "/notes", label: "תעודות משלוח", icon: FileText },
+  { to: "/canvas", label: "עריכת תעודה (קנבס)", icon: Edit3 },
   { to: "/customers", label: "תיקי לקוחות", icon: Users },
   { to: "/ituran", label: "איתוראן GPS", icon: Satellite },
   { to: "/chat", label: "צ'אט נועה AI", icon: MessageCircle },
@@ -37,6 +39,7 @@ const MOBILE_NAV = [
   { to: "/", label: "מצב", icon: Crown },
   { to: "/orders", label: "הזמנות", icon: Truck },
   { to: "/notes", label: "תעודות", icon: FileText },
+  { to: "/canvas", label: "קנבס", icon: Edit3 },
   { to: "/customers", label: "לקוחות", icon: Users },
   { to: "/chat", label: "נועה", icon: MessageCircle },
 ] as const;
