@@ -163,7 +163,9 @@ async function extractManifest(pdfBase64: string, totalPages: number): Promise<R
   );
 
   if (!res.ok) {
-    throw new HttpError(502, `Gemini request failed with status ${res.status}`);
+    const detail = (await res.text().catch(() => "")).slice(0, 400);
+    console.error(`Gemini ${res.status} (model ${model}): ${detail}`);
+    throw new HttpError(502, `Gemini request failed with status ${res.status}: ${detail}`);
   }
 
   const data = (await res.json()) as {
