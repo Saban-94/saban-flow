@@ -416,17 +416,6 @@ export const noteWeightTons = (n: DeliveryNote) =>
 export const driverOf = (id: string) => DRIVERS.find((d) => d.id === id)!;
 
 export function auditNote(n: DeliveryNote): {
-  status: AuditStatus;
-  findings: { status: AuditStatus; text: string }[];
-} {
-  const findings: { status: AuditStatus; text: string }[] = [];
-  n.items.forEach((i) => {
-    if (i.qty !== i.ordered)
-      findings.push({
-        status: "warn",
-        text: `${i.name}: סופק ${i.qty} מול ${i.ordered} בהזמנת קומקס`,
-      });
-  });
   const b = n.deposits.bales60002,
     p = n.deposits.pallets60060;
   if (b.delivered !== b.billed)
