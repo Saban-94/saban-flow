@@ -376,14 +376,16 @@ ${
               )}
             </div>
 
-            {/* עורך הקנבס המלא עם חותמת ראמי מתוך public/sing-rami.jpg */}
-            <DeliveryCanvasEditor
-              imageSrc={scanImageSrc}
-              stampSrc="/sing-rami.jpg"
-              secondaryStampSrc={noaStamp}
-              onSaveToFolder={handleSaveToFolder}
-              onUpdateSheetLog={handleUpdateSheetLog}
-            />
+{/* עורך הקנבס המלא - מתחלף מיידית עם הלקוח הנבחר */}
+<DeliveryCanvasEditor
+  key={currentNote.id}
+  note={currentNote}
+  imageSrc={scanImageSrc}
+  stampSrc="/sing-rami.jpg"
+  secondaryStampSrc={noaStamp}
+  onSaveToFolder={handleSaveToFolder}
+  onUpdateSheetLog={handleUpdateSheetLog}
+/>
           </Card>
         </div>
 
