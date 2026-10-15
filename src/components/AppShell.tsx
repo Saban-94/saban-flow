@@ -294,10 +294,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="space-y-1.5 text-[11px] max-h-48 overflow-y-auto">
             {notes.slice(0, 4).map((n) => {
-              const b = n.deposits.bales60002;
-              const p = n.deposits.pallets60060;
+              const b = n.deposits?.bales60002 || { delivered: 0, billed: 0 };
+              const p = n.deposits?.pallets60060 || { delivered: 0, billed: 0 };
               const isBaleMatched = b.delivered === b.billed;
               const isPalletMatched = p.delivered === p.billed;
+              const yardParts = (n.yard || "").split(" ");
 
               return (
                 <div
@@ -305,7 +306,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   className="rounded-xl bg-muted/40 p-2.5 flex items-start gap-2 border border-border/40 hover:bg-muted/60 transition"
                 >
                   <div className="shrink-0 mt-0.5">
-                    {n.gps.status === "ok" ? (
+                    {n.gps?.status === "ok" ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                     ) : (
                       <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
@@ -319,14 +320,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                       </span>
                     </div>
                     <div className="text-[10px] text-primary font-semibold">
-                      קומקס #{n.comaxOrder} · {n.yard.split(" ")[0]} {n.yard.split(" ")[1]}
+                      קומקס #{n.comaxOrder || n.id} · {yardParts[0] || ""} {yardParts[1] || ""}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
                       פקדונות 1:1: {b.delivered} בלות {isBaleMatched ? "✓" : "⚠️"} · {p.delivered}{" "}
                       משטחים {isPalletMatched ? "✓" : "⚠️"}
                     </div>
                     <div className="text-[10px] text-muted-foreground italic">
-                      איתוראן: {n.gps.note}
+                      איתוראן: {n.gps?.note || "ללא הערה"}
                     </div>
                   </div>
                 </div>
