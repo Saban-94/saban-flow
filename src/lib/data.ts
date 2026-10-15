@@ -71,6 +71,36 @@ export const DRIVERS: Driver[] = [
 
 export const BASE: DeliveryNote[] = [
   {
+    id: "6715766",
+    comaxOrder: "6215960",
+    customer: "א.ערן אזולאי",
+    customerNo: "632122",
+    date: "13/10/2026",
+    siteAddress: "נח 3, תל אביב",
+    yard: "מחסן 4 החרש 10",
+    driver: "חכמת 615-41-002",
+    items: [
+      { name: "ריצופית אפור 181 25 ק״ג כרמית", qty: 240, ordered: 240, price: 28, weightKg: 25, unit: "שק" },
+      { name: "פורצלן 60/60 אפור 1.44 מ״ר", qty: 175, ordered: 175, price: 42, weightKg: 28, unit: "מ״ר" },
+      { name: "סרם 255 SIKA 25 ק״ג", qty: 20, ordered: 20, price: 85, weightKg: 25, unit: "שק" },
+      { name: "הובלת מנוף תל אביב מרכז", qty: 1, ordered: 1, price: 650, weightKg: 0, unit: "משלוח" },
+      { name: "משטח סבן פקדון (60060)", qty: 1, ordered: 1, price: 60, weightKg: 25, unit: "משטח", deposit: 60 },
+    ],
+    deposits: {
+      bales60002: { delivered: 0, billed: 0 },
+      pallets60060: { delivered: 1, billed: 1 },
+    },
+    gps: { status: "ok", note: "40 דק׳ מנוף — אומת באיתוראן (נח 3, תל אביב)" },
+    signedBy: "מאסרוה ראמי חתם ✅",
+    craneTime: "40 דק׳ מנוף",
+    driveUrl: "https://drive.google.com/file/d/152tuyGDT7blVAKfTy4L4k3aAUedVyza7/view?usp=drivesdk",
+    scans: [
+      "https://drive.google.com/thumbnail?id=152tuyGDT7blVAKfTy4L4k3aAUedVyza7&sz=w1600",
+      "https://drive.google.com/file/d/152tuyGDT7blVAKfTy4L4k3aAUedVyza7/preview",
+    ],
+    scanImage: "https://drive.google.com/thumbnail?id=152tuyGDT7blVAKfTy4L4k3aAUedVyza7&sz=w1600",
+  },
+  {
     id: "6714850",
     comaxOrder: "6215974",
     customer: "זבולון-עדירן / וייס",
@@ -119,30 +149,6 @@ export const BASE: DeliveryNote[] = [
     driveUrl: "https://drive.google.com/file/d/10gtPLlloBM8vivDCKoH-QTIGdv5W6Wb1/view",
     scans: ["https://drive.google.com/thumbnail?id=10gtPLlloBM8vivDCKoH-QTIGdv5W6Wb1&sz=w1600"],
     scanImage: "https://drive.google.com/thumbnail?id=10gtPLlloBM8vivDCKoH-QTIGdv5W6Wb1&sz=w1600",
-  },
-  {
-    id: "6714845",
-    comaxOrder: "6215977",
-    customer: "א.ערן אזולאי",
-    customerNo: "632122",
-    date: "13/10/2026",
-    siteAddress: "נח 3, תל אביב",
-    yard: "מחסן 4 החרש 10",
-    driver: "חכמת (מרצדס 615-41-002)",
-    items: [
-      { name: "טיט ריצופית סבן", qty: 240, ordered: 240, price: 28, weightKg: 25, unit: "שק" },
-      { name: "דבק פורצלן מקצועי", qty: 175, ordered: 175, price: 38, weightKg: 25, unit: "שק" },
-    ],
-    deposits: {
-      bales60002: { delivered: 0, billed: 0 },
-      pallets60060: { delivered: 1, billed: 1 },
-    },
-    gps: { status: "ok", note: "32 דק׳ מנוף — אומת באיתוראן (11:10–11:50)" },
-    signedBy: "ערן אזולאי חתם ✅",
-    craneTime: "32 דק׳ מנוף",
-    driveUrl: "https://drive.google.com/file/d/1C9EkH4r6q6RMhNSR90tPoQEKpK4t-6VO/view",
-    scans: ["https://drive.google.com/thumbnail?id=1C9EkH4r6q6RMhNSR90tPoQEKpK4t-6VO&sz=w1600"],
-    scanImage: "https://drive.google.com/thumbnail?id=1C9EkH4r6q6RMhNSR90tPoQEKpK4t-6VO&sz=w1600",
   },
   {
     id: "6714840",
