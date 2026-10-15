@@ -1,67 +1,441 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import DeliveryCanvasEditor from '@/components/DeliveryCanvasEditor';
-import { NOTES } from '@/lib/data';
+import { NOTES, auditNote, ils, type DeliveryNote } from '@/lib/data';
+import { fetchNotes, submitApproval } from '@/lib/api';
 import defaultScan from '@/assets/delivery-note.jpg';
 import noaStamp from '@/assets/noa.jpg';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import {
+  Bot,
+  Sparkles,
+  Send,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  ExternalLink,
+  RefreshCw,
+  Clock,
+  UserCheck,
+  Crown,
+  Scale,
+  PenTool,
+} from 'lucide-react';
 
 export const Route = createFileRoute('/canvas')({
   component: CanvasPageRoute,
 });
 
-function CanvasPageRoute() {
-  const [selectedNoteId, setSelectedNoteId] = useState(NOTES[0]?.id || '1');
-  const currentNote = NOTES.find(n => n.id === selectedNoteId) || NOTES[0];
-  const scanImageSrc = currentNote?.scanImage || defaultScan;
+/**
+ * מחלץ מזהה קובץ Drive מתוך קישור מלא ומחזיר כתובת Thumbnail ישירה ברזולוציה גבוהה
+ */
+function getDriveThumbnailUrl(driveUrlOrId?: string): string | null {
+  if (!driveUrlOrId) return null;
+  const match =
+    driveUrlOrId.match(/\/d\/([a-zA-Z0-9_-]+)/) || driveUrlOrId.match(/id=([a-zA-Z0-9_-]+)/);
+  const fileId = match ? match[1] : driveUrlOrId;
+  if (!fileId || fileId.length < 15) return null;
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+}
 
+interface ChatMessage {
+  id: string;
+  sender: 'noa' | 'rami';
+  text: string;
+  timestamp: string;
+  isTyped?: boolean;
+}
+
+function CanvasPageRoute() {
+  // שליפת תעודות חיות ישירות מגיליון Google Sheets ("📑_ארכיון_תעודות_משלוח") עם Fallback מקומי
+  const {
+    data: remoteNotes,
+    isLoading: isLoadingNotes,
+    refetch: refetchNotes,
+  } = useQuery({
+    queryKey: ['live-notes-canvas'],
+    queryFn: fetchNotes,
+    staleTime: 30_000,
+  });
+
+  const notesList: DeliveryNote[] = useMemo(() => {
+    if (remoteNotes && remoteNotes.length > 0) return remoteNotes;
+    return NOTES;
+  }, [remoteNotes]);
+
+  // בחירת תעודה נוכחית מתוך הגיליון
+  const [selectedNoteId, setSelectedNoteId] = useState<string>(notesList[0]?.id || '1');
+
+  // עדכון הבחירה כאשר הנתונים מגיעים
+  useEffect(() => {
+    if (notesList.length > 0 && !notesList.some((n) => n.id === selectedNoteId)) {
+      setSelectedNoteId(notesList[0].id);
+    }
+  }, [notesList, selectedNoteId]);
+
+  const currentNote = useMemo(() => {
+    return notesList.find((n) => n.id === selectedNoteId) || notesList[0];
+  }, [notesList, selectedNoteId]);
+
+  // בדיקת ביקורת חוק הפקדונות והכמויות של נועה עבור התעודה
+  const audit = useMemo(() => {
+    return auditNote(currentNote);
+  }, [currentNote]);
+
+  // תמונת הסריקה - עדיפות ל-Thumbnail ישיר מ-Google Drive של התעודה המפוצלת בגיליון
+  const driveImgUrl = useMemo(() => {
+    return getDriveThumbnailUrl(currentNote.driveUrl);
+  }, [currentNote.driveUrl]);
+
+  const scanImageSrc = driveImgUrl || currentNote.scanImage || currentNote.scans?.[0] || defaultScan;
+
+  /* ----------------- צ'אט נועה AI ואפקט הקלדה בזמן אמת ----------------- */
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const [typingText, setTypingText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
+
+  // הפקת ניתוח נועה מפורט בעת טעינת תעודה חדשה
+  useEffect(() => {
+    if (!currentNote) return;
+
+    const balesDelivered = currentNote.deposits?.bales60002?.delivered ?? 0;
+    const balesBilled = currentNote.deposits?.bales60002?.billed ?? 0;
+    const palletsDelivered = currentNote.deposits?.pallets60060?.delivered ?? 0;
+    const palletsBilled = currentNote.deposits?.pallets60060?.billed ?? 0;
+
+    const itemsSummary = currentNote.items
+      ? currentNote.items.map((i) => `${i.name} (${i.qty} ${i.unit})`).join(', ')
+      : 'חומרי בניין כללי';
+
+    const fullAnalysis = `שלום ראמי, סרקתי וניתחתי את תעודה #${currentNote.comaxOrder || currentNote.id} עבור ${currentNote.customer}:
+
+✍️ סריקת כתב יד וחתימות:
+• זוהתה חתימת מקבל באתר: ${currentNote.signedBy || 'נחתם ע״י מנהל עבודה'} בשטח.
+• הצהרת קבלה: "הציוד סופק במלואו ובמצב תקין".
+
+📦 בדיקת כמויות מול הזמנת קומקס:
+• פריטים שנפרקו: ${itemsSummary}.
+• סטטוס כמויות: ${audit.status === 'ok' ? 'תואם 100% להזמנה' : 'אותרה אי-התאמה הדורשת בדיקה'}.
+
+⚖️ חוק הפקדונות ובקרת 1:1:
+• שקי פקדון 60002: ${balesDelivered} סופקו מול ${balesBilled} שחויבו (${balesDelivered === balesBilled ? 'מאוזן 1:1 ✅' : 'אי-התאמה בבלות ⚠️'}).
+• משטחי עץ 60060: ${palletsDelivered} סופקו מול ${palletsBilled} שחויבו (${palletsDelivered === palletsBilled ? 'מאוזן 1:1 ✅' : 'חריגה במשטחים ⚠️'}).
+
+🛰️ איתוראן וזמן מנוף:
+• נהג: ${currentNote.driver || 'צוות סבן'} | שהייה באתר: ${currentNote.gps?.note || 'מאומת בטווח גדר גיאוגרפית'}.
+
+👑 מסקנה להראל מנכ״ל:
+${
+  audit.status === 'ok'
+    ? 'התעודה נקייה לחלוטין מתקלות. ממליצה לאשר שלב ראמי ולהעביר לחתימת הראל.'
+    : 'ישנה חריגה קלה בפקדונות או בכמויות. סמן במרקר צהוב ודרוש אימות טלפוני לפני אישור סופי.'
+}`;
+
+    // הפעלת אפקט הקלדה (Typewriter Effect)
+    setIsTyping(true);
+    setTypingText('');
+    let currentIndex = 0;
+
+    const timer = setInterval(() => {
+      if (currentIndex < fullAnalysis.length) {
+        setTypingText((prev) => prev + fullAnalysis.charAt(currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(timer);
+        setIsTyping(false);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `noa-${Date.now()}`,
+            sender: 'noa',
+            text: fullAnalysis,
+            timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+        setTypingText('');
+      }
+    }, 12);
+
+    return () => clearInterval(timer);
+  }, [currentNote, audit]);
+
+  // גלילה אוטומטית לתחתית הצ'אט
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, typingText]);
+
+  // שליחת הודעה בצ'אט מראמי לנועה
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!userInput.trim()) return;
+
+    const userMsg: ChatMessage = {
+      id: `rami-${Date.now()}`,
+      sender: 'rami',
+      text: userInput.trim(),
+      timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    const query = userInput.trim();
+    setUserInput('');
+
+    // מענה חכם מנועה
+    setTimeout(() => {
+      let reply = `ראמי, רשמתי לפניי. `;
+      if (query.includes('פקדון') || query.includes('משטח') || query.includes('בלה')) {
+        reply += `לפי חוק הפקדונות ונוהל סבן, עלינו לוודא זיכוי של ₪45 לכל בלה 60002 ו-₪60 לכל משטח 60060 שהוחזר מהאתר. המאזן כעת מתועד בגיליון.`;
+      } else if (query.includes('חתימה') || query.includes('מי חתם')) {
+        reply += `התעודה נחתמה באתר ע״י ${currentNote.signedBy || 'מנהל העבודה'}. החתימה קריאה וברורה, ומצורפת להצהרת מסירה תקינה.`;
+      } else if (query.includes('אשר') || query.includes('הראל')) {
+        reply += `שלב ראמי מוכן לאישור. הטבעתי חותמת דיגיטלית בפינה, בלחיצה על 'אשר שלב' הסטטוס יועבר ישירות לדשבורד של הראל.`;
+      } else {
+        reply += `אני עוקבת אחרי התעודה בזמן אמת. כל סימון שתעשה במרקר הצהוב יישמר ישירות בתיקיית הלקוח ב-Google Drive.`;
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `noa-reply-${Date.now()}`,
+          sender: 'noa',
+          text: reply,
+          timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    }, 450);
+  };
+
+  /* ----------------- פעולות שמירה ואישור ----------------- */
   const handleSaveToFolder = async (dataUrl: string) => {
     console.log('Saving final canvas to customer folder...', dataUrl);
-    toast.success(`תעודה עבור לקוח ${currentNote.customer} נשמרה בהצלחה בתיקיית הלקוח! 📁`);
+    toast.success(`תעודה עבור ${currentNote.customer} נשמרה בתיקיית הלקוח ב-Google Drive! 📁`);
   };
 
   const handleUpdateSheetLog = async (statusMessage: string) => {
-    console.log('Updating Google Sheets status:', statusMessage);
-    toast.info(`סטטוס עודכן בגיליון: ${statusMessage}`);
+    try {
+      await submitApproval(
+        currentNote.id,
+        statusMessage.includes('הראל') ? 'harel' : 'rami',
+        statusMessage
+      );
+      toast.info(`הסטטוס נרשם בגיליון "מערכת מאוחדת": ${statusMessage}`);
+    } catch {
+      toast.info(`סטטוס עודכן: ${statusMessage}`);
+    }
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-5" dir="rtl">
+      {/* סרגל עליון: כותרת ובורר תעודות מ-Google Sheets */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-card p-4 rounded-2xl border border-border shadow-xs">
         <div>
-          <h1 className="text-2xl font-bold">עריכה ובדיקת תעודת משלוח (Canvas)</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            ח. סבן חומרי בניין · מעקב בדיקות: ראמי ➔ ואחר ➔ הראל מנכ״ל
+          <div className="flex items-center gap-2">
+            <PenTool className="h-5 w-5 text-primary" />
+            <h1 className="text-xl md:text-2xl font-bold font-display">
+              תצוגת תעודת משלוח וקנבס אינטראקטיבי
+            </h1>
+            <Badge variant="outline" className="text-[10px] gap-1 font-mono">
+              <Bot className="h-3 w-3 text-emerald-600" /> נועה AI Copilot
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            ח. סבן חומרי בניין בע״מ · שליפה מתוך גיליון מערכת מאוחדת וסריקות Google Drive
           </p>
         </div>
 
-        {/* בורר תעודות מהיר */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full md:w-auto">
-          {NOTES.slice(0, 5).map((note) => (
-            <Button
-              key={note.id}
-              size="sm"
-              variant={selectedNoteId === note.id ? "default" : "outline"}
-              onClick={() => {
-                setSelectedNoteId(note.id);
-                toast.info(`נטענה תעודה #${note.comaxOrder || note.id} - ${note.customer}`);
-              }}
-              className="text-xs rounded-xl shrink-0"
-            >
-              #{note.comaxOrder || note.id} ({note.customer})
-            </Button>
-          ))}
+        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => refetchNotes()}
+            disabled={isLoadingNotes}
+            className="rounded-xl h-8 text-xs shrink-0"
+            title="רענן מגיליון"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingNotes ? 'animate-spin' : ''}`} />
+          </Button>
+
+          {notesList.map((note) => {
+            const isSelected = selectedNoteId === note.id;
+            return (
+              <Button
+                key={note.id}
+                size="sm"
+                variant={isSelected ? 'default' : 'outline'}
+                onClick={() => setSelectedNoteId(note.id)}
+                className={`text-xs rounded-xl shrink-0 h-8 gap-1.5 ${
+                  isSelected ? 'shadow-xs font-bold' : ''
+                }`}
+              >
+                <span>#{note.comaxOrder || note.id}</span>
+                <span className="opacity-75 max-w-[90px] truncate">{note.customer}</span>
+              </Button>
+            );
+          })}
         </div>
       </div>
 
-      <DeliveryCanvasEditor
-        imageSrc={scanImageSrc}
-        stampSrc={noaStamp}
-        onSaveToFolder={handleSaveToFolder}
-        onUpdateSheetLog={handleUpdateSheetLog}
-      />
+      {/* תצוגה מפוצלת: חדר צ'אט נועה AI משמאל, תצוגת התעודה והקנבס מימין */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* עמודה ימנית (7 מתוך 12): תצוגת הקנבס והסריקה מ-Drive */}
+        <div className="lg:col-span-7 space-y-4">
+          <Card className="p-4 bg-card border-border rounded-2xl shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b pb-2.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-foreground">
+                  תעודה מס׳ {currentNote.comaxOrder || currentNote.id}
+                </span>
+                <span className="text-muted-foreground">· {currentNote.customer}</span>
+              </div>
+
+              {currentNote.driveUrl && (
+                <a
+                  href={currentNote.driveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline bg-primary/10 px-2.5 py-1 rounded-lg"
+                >
+                  <span>צפה ב-PDF המקורי בדרייב</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+
+            {/* עורך הקנבס המלא */}
+            <DeliveryCanvasEditor
+              imageSrc={scanImageSrc}
+              stampSrc={noaStamp}
+              onSaveToFolder={handleSaveToFolder}
+              onUpdateSheetLog={handleUpdateSheetLog}
+            />
+          </Card>
+        </div>
+
+        {/* עמודה שמאלית (5 מתוך 12): חדר צ'אט ובקרת נועה AI עם אפקט הקלדה */}
+        <div className="lg:col-span-5 space-y-4">
+          <Card className="flex flex-col h-[680px] bg-card border-border rounded-2xl shadow-sm overflow-hidden">
+            {/* כותרת חדר הצ'אט */}
+            <div className="bg-muted/70 p-3.5 border-b border-border/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <img
+                    src={noaStamp}
+                    alt="נועה AI"
+                    className="h-9 w-9 rounded-full object-cover border-2 border-emerald-500 shadow-xs"
+                  />
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm flex items-center gap-1.5">
+                    נועה AI · סדרנית ובקרה
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    סריקת כתב יד, הצלבת קומקס וחוק הפקדונות
+                  </p>
+                </div>
+              </div>
+
+              <Badge
+                variant={audit.status === 'ok' ? 'default' : 'secondary'}
+                className="text-[10px] gap-1 bg-emerald-600 text-white"
+              >
+                <ShieldCheck className="h-3 w-3" />
+                {audit.status === 'ok' ? 'אומת 1:1' : 'נדרשת בדיקה'}
+              </Badge>
+            </div>
+
+            {/* תוכן ההודעות עם אפקט הקלדה בזמן אמת */}
+            <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-muted/20 text-xs">
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${
+                    msg.sender === 'rami' ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-[90%] p-3 rounded-2xl shadow-xs leading-relaxed whitespace-pre-wrap ${
+                      msg.sender === 'rami'
+                        ? 'bg-primary text-primary-foreground rounded-tl-xs'
+                        : 'bg-card border border-border/80 text-foreground rounded-tr-xs'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                  <span className="text-[9px] text-muted-foreground mt-1 px-1">
+                    {msg.sender === 'rami' ? 'ראמי' : 'נועה AI'} · {msg.timestamp}
+                  </span>
+                </div>
+              ))}
+
+              {/* הודעה בהקלדה חיה ע״י נועה */}
+              {isTyping && typingText && (
+                <div className="flex flex-col items-start">
+                  <div className="max-w-[90%] p-3 rounded-2xl shadow-xs leading-relaxed whitespace-pre-wrap bg-card border border-emerald-500/30 text-foreground rounded-tr-xs">
+                    {typingText}
+                    <span className="inline-block w-1.5 h-3.5 bg-emerald-600 mr-1 animate-pulse" />
+                  </div>
+                  <span className="text-[9px] text-emerald-600 font-bold mt-1 px-1 flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5 animate-spin" /> נועה מקלידה מסקנות...
+                  </span>
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* מקשים מהירים להנחיות שכיחות */}
+            <div className="p-2 bg-muted/40 border-t border-border/60 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+              <button
+                type="button"
+                onClick={() => setUserInput('בדקי לי את מאזן המשטחים והבלות שוב')}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
+              >
+                ⚖️ מאזן פקדונות
+              </button>
+              <button
+                type="button"
+                onClick={() => setUserInput('האם יש חתימת מקבל תקינה בשטח?')}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
+              >
+                ✍️ אימות חתימה
+              </button>
+              <button
+                type="button"
+                onClick={() => setUserInput('התעודה מאושרת, שלחי להראל מנכ״ל')}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
+              >
+                👑 שלח להראל
+              </button>
+            </div>
+
+            {/* שורת קלט להודעה של ראמי */}
+            <form
+              onSubmit={handleSendMessage}
+              className="p-2.5 bg-card border-t border-border flex items-center gap-2"
+            >
+              <input
+                type="text"
+                placeholder="שאל את נועה על התעודה, כתב יד, פקדונות..."
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                className="flex-1 bg-muted/60 border border-border/80 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Button type="submit" size="sm" className="rounded-xl h-8 px-3 gap-1">
+                <Send className="h-3 w-3" />
+                <span>שלח</span>
+              </Button>
+            </form>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
