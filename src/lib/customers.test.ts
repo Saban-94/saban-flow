@@ -67,13 +67,24 @@ describe("Audio Alerts Engine", () => {
   });
 });
 
-import { API_BASE, fetchNotes, fetchLiveOrders, submitApproval } from "./api";
+import {
+  API_BASE,
+  MASTER_SHEET_ID,
+  fetchNotes,
+  fetchOrders,
+  fetchLiveOrders,
+  fetchGps,
+  fetchCustomers,
+  fetchDashboard,
+  submitApproval,
+} from "./api";
 
 describe("Google Apps Script Backend Integration", () => {
-  it("defines the production API_BASE correctly", () => {
+  it("defines the production API_BASE and MASTER_SHEET_ID correctly", () => {
     expect(API_BASE).toBe(
-      "https://script.google.com/macros/s/AKfycbxLKDVRBB6tQVipEelxX5vVRVPSw8mcEatDMdonP0qd1sl5g-BCzhWCuhiAHrBGniH-RQ/exec",
+      "https://script.google.com/macros/s/AKfycbxLKDVRBB6tQVipEelxX5vVRVPSw8mcEatDMdonP0qd1sl5g-BCzhWCuhiAHrBGniH-RQ/exec"
     );
+    expect(MASTER_SHEET_ID).toBe("1u1NiB7TAjHQQMEqZfGZI5mCOOKDu9F33RzBfuMnZ9Go");
   });
 
   it("fetches notes with offline fallback and proper schema", async () => {
@@ -86,11 +97,22 @@ describe("Google Apps Script Backend Integration", () => {
   }, 12000);
 
   it("fetches live orders with offline fallback", async () => {
-    const orders = await fetchLiveOrders();
+    const orders = await fetchOrders();
     expect(Array.isArray(orders)).toBe(true);
     expect(orders.length).toBeGreaterThan(0);
     expect(orders[0]?.id).toBeDefined();
     expect(orders[0]?.items).toBeInstanceOf(Array);
+  }, 12000);
+
+  it("fetches GPS stops and customers with offline fallback", async () => {
+    const [gps, customers, dashboard] = await Promise.all([
+      fetchGps(),
+      fetchCustomers(),
+      fetchDashboard(),
+    ]);
+    expect(Array.isArray(gps)).toBe(true);
+    expect(Array.isArray(customers)).toBe(true);
+    expect(dashboard.pendingHarelCount).toBeDefined();
   }, 12000);
 
   it("handles submitApproval gracefully", async () => {
@@ -98,3 +120,4 @@ describe("Google Apps Script Backend Integration", () => {
     expect(res.success).toBe(true);
   }, 12000);
 });
+

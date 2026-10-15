@@ -530,4 +530,15 @@ export const ORDERS: Order[] = [
 export const ils = (n: number) => "₪" + n.toLocaleString("he-IL", { maximumFractionDigits: 0 });
 export const fmtDate = (d: string) => d.split("-").reverse().join("/");
 
-export { API_BASE, fetchNotes, fetchLiveOrders, submitApproval } from "./api";
+export {
+  API_BASE,
+  MASTER_SHEET_ID,
+  fetchNotes,
+  fetchOrders,
+  fetchLiveOrders,
+  fetchGps,
+  fetchCustomers,
+  fetchDashboard,
+  submitApproval,
+} from "./api";
+

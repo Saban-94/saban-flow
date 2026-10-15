@@ -1,7 +1,9 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+
+import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/AppShell";
-import { CUSTOMERS, calculateTotalCustomerDeposits, type CustomerTag } from "@/lib/customers-data";
+import { CUSTOMERS, calculateTotalCustomerDeposits, type CustomerTag, type CustomerProfile } from "@/lib/customers-data";
+import { fetchCustomers } from "@/lib/data";
 import {
   Users,
   Package,
@@ -15,7 +17,9 @@ import {
   Truck,
   ShieldCheck,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -49,10 +53,17 @@ function CustomersList() {
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("הכל");
 
+  const { data: customerList = CUSTOMERS, isFetching, refetch } = useQuery<CustomerProfile[]>({
+    queryKey: ["customers"],
+    queryFn: fetchCustomers,
+    initialData: CUSTOMERS,
+    staleTime: 30000,
+  });
+
   const kpis = useMemo(() => calculateTotalCustomerDeposits(), []);
 
   const filteredCustomers = useMemo(() => {
-    return CUSTOMERS.filter((c) => {
+    return customerList.filter((c) => {
       const q = search.trim().toLowerCase();
       const matchSearch =
         !q ||
@@ -66,7 +77,8 @@ function CustomersList() {
 
       return matchSearch && matchTag;
     });
-  }, [search, selectedTag]);
+  }, [customerList, search, selectedTag]);
+
 
   const tags = ["הכל", "לקוח עוגן", "שוטף מאושר", "דורש תשלום במזומן", "מלגזה באתר"];
 
