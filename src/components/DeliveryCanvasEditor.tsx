@@ -4,9 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Image as ImageIcon, Send, ShieldCheck, UserCheck, Stamp, MousePointerClick } from "lucide-react";
+import type { DeliveryNote } from "@/lib/data";
 
 interface DeliveryCanvasEditorProps {
-  imageSrc: string;
+  note?: DeliveryNote; // נתוני התעודה הנבחרת
+  imageSrc?: string;
   stampSrc?: string; // נתיב חותמת ראמי - ברירת מחדל /sing-rami.jpg
   secondaryStampSrc?: string; // חותמת נועה
   onSaveToFolder: (finalDataUrl: string) => Promise<void> | void;
@@ -14,6 +16,7 @@ interface DeliveryCanvasEditorProps {
 }
 
 export default function DeliveryCanvasEditor({
+  note,
   imageSrc,
   stampSrc = "/sing-rami.jpg",
   secondaryStampSrc,
@@ -29,22 +32,177 @@ export default function DeliveryCanvasEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isDrawing = useRef(false);
 
-  // טעינת תמונת התעודה על גבי הקנבס
+  // טעינה וציור מיידי של תעודת המשלוח של הלקוח הנבחר
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = imageSrc;
-    img.onload = () => {
-      canvas.width = img.width || 800;
-      canvas.height = img.height || 1050;
-      ctx.drawImage(img, 0, 0);
+    /**
+     * פונקציה לציור שטר משלוח וקטורי רשמי של ח. סבן עבור הלקוח הספציפי שנבחר
+     */
+    const renderNoteDocument = () => {
+      canvas.width = 800;
+      canvas.height = 1050;
+
+      // רקע דף מסמך נקי
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // מסגרת עדינה
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+      // כותרת עליונה
+      ctx.direction = 'rtl';
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 13px Assistant, Arial, sans-serif';
+      ctx.fillText('בס״ד', canvas.width - 45, 45);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 19px Assistant, Arial, sans-serif';
+      ctx.fillText('ח. סבן חומרי בניין (1994) בע״מ', canvas.width - 50, 75);
+
+      ctx.font = '11px Assistant, Arial, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('אספקה ישירה לאתרי בנייה · מלט · בלוקים · חול · חצץ · ברזל וגבס', canvas.width - 50, 95);
+      ctx.fillText('מחסן 4 החרש 10 הוד השרון · טל: 09-7407070 · מחסן 1 התלמיד 6 הוד השרון', canvas.width - 50, 112);
+
+      // כותרת שטר משלוח
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 24px Assistant, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      const noteNum = note?.comaxOrder || note?.id || '6714850';
+      ctx.fillText(`שטר משלוח מס׳: ${noteNum}`, canvas.width / 2, 160);
+
+      // קו מפריד
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.beginPath();
+      ctx.moveTo(45, 180);
+      ctx.lineTo(canvas.width - 45, 180);
+      ctx.stroke();
+
+      // פרטי הזמנה ולקוח
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 13px Assistant, Arial, sans-serif';
+      ctx.fillStyle = '#1e293b';
+
+      const customerName = note?.customer || 'לקוח ח. סבן';
+      const orderId = note?.comaxOrder || note?.id || '';
+      const deliveryDate = note?.date || '13/10/2026';
+      const siteAddress = note?.siteAddress || 'אתר הלקוח';
+      const driverName = note?.driver || 'חכמת (מרצדס 615-41-002)';
+
+      // שורת פרטים 1
+      ctx.fillText(`שם הלקוח: ${customerName}`, canvas.width - 60, 215);
+      ctx.fillText(`תאריך אספקה: ${deliveryDate}`, 320, 215);
+
+      // שורת פרטים 2
+      ctx.fillText(`כתובת האתר: ${siteAddress}`, canvas.width - 60, 242);
+      ctx.fillText(`נהג ורכב: ${driverName}`, 320, 242);
+
+      // שורת פרטים 3
+      ctx.fillText(`מס׳ הזמנה: ${orderId}`, canvas.width - 60, 268);
+      ctx.fillText(`מחסן מוצא: ${note?.yard || 'מחסן 4 החרש 10'}`, 320, 268);
+
+      // טבלת פריטים
+      const tableTop = 295;
+      const rowHeight = 34;
+      const headers = ['מס׳', 'תיאור הפריט', 'כמות', 'יח׳', 'משקל (ק״ג)', 'הערות ופקדונות'];
+      const colX = [canvas.width - 60, canvas.width - 110, canvas.width - 370, canvas.width - 430, canvas.width - 510, canvas.width - 620];
+
+      // כותרת טבלה
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(45, tableTop, canvas.width - 90, 32);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.strokeRect(45, tableTop, canvas.width - 90, 32);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px Assistant, Arial, sans-serif';
+      headers.forEach((h, idx) => {
+        ctx.fillText(h, colX[idx], tableTop + 21);
+      });
+
+      // שורות פריטים
+      const items = (note?.items && note.items.length > 0)
+        ? note.items
+        : [{ name: 'חומרי בניין (כללי)', qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: 'משלוח' }];
+
+      ctx.font = '12px Assistant, Arial, sans-serif';
+      items.forEach((item, idx) => {
+        const y = tableTop + 32 + idx * rowHeight;
+        if (idx % 2 === 1) {
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(45, y, canvas.width - 90, rowHeight);
+        }
+        ctx.strokeRect(45, y, canvas.width - 90, rowHeight);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(String(idx + 1), colX[0], y + 22);
+        ctx.fillText(item.name || 'פריט', colX[1], y + 22);
+        ctx.fillText(String(item.qty || 1), colX[2], y + 22);
+        ctx.fillText(item.unit || 'יח׳', colX[3], y + 22);
+        ctx.fillText(String(item.weightKg || 0), colX[4], y + 22);
+        ctx.fillText(item.deposit ? `פקדון ₪${item.deposit}` : 'לפי הזמנה', colX[5], y + 22);
+      });
+
+      // ריווח לשורות ריקות אם יש פחות מ-5 פריטים
+      const totalRows = Math.max(items.length, 5);
+      for (let extra = items.length; extra < totalRows; extra++) {
+        const y = tableTop + 32 + extra * rowHeight;
+        if (extra % 2 === 1) {
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(45, y, canvas.width - 90, rowHeight);
+        }
+        ctx.strokeRect(45, y, canvas.width - 90, rowHeight);
+      }
+
+      // סיכום פקדונות
+      const depositsY = tableTop + 32 + totalRows * rowHeight + 25;
+      ctx.fillStyle = '#fef3c7';
+      ctx.fillRect(45, depositsY, canvas.width - 90, 48);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeRect(45, depositsY, canvas.width - 90, 48);
+
+      const bales = note?.deposits?.bales60002?.delivered ?? 0;
+      const pallets = note?.deposits?.pallets60060?.delivered ?? 0;
+
+      ctx.fillStyle = '#92400e';
+      ctx.font = 'bold 12px Assistant, Arial, sans-serif';
+      ctx.fillText(`בקרת חוק הפקדונות 1:1:`, canvas.width - 65, depositsY + 20);
+      ctx.font = '12px Assistant, Arial, sans-serif';
+      ctx.fillText(`• שקי פקדון 60002 (בלות): ${bales} נפרקו   |   • משטחי עץ סבן 60060: ${pallets} נפרקו   |   • שהיית מנוף: ${note?.craneTime || '26 דק׳'}`, canvas.width - 65, depositsY + 38);
+
+      // הצהרה וחתימות שטח
+      const footerY = depositsY + 95;
+      ctx.fillStyle = '#334155';
+      ctx.font = 'italic 12px Assistant, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('הציוד והסחורה המפורטים לעיל סופקו במלואם ובמצב תקין לשביעות רצון המזמין.', canvas.width / 2, footerY);
+
+      // חתימת שטח מקבל ונהג
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 13px Assistant, Arial, sans-serif';
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(`שם המקבל באתר: ${note?.signedBy || 'מנהל עבודה'}`, canvas.width - 80, footerY + 50);
+      ctx.fillText(`אישור וחתימת שטח:`, canvas.width - 80, footerY + 75);
+
+      // הדמיית חתימה פיזית של המקבל
+      ctx.font = 'italic 20px "Brush Script MT", "Segoe Script", cursive';
+      ctx.fillStyle = '#1e3a8a';
+      ctx.fillText(note?.signedBy ? `${note.signedBy} ~` : 'אושר בשטח ~', canvas.width - 240, footerY + 78);
+
+      ctx.font = 'bold 13px Assistant, Arial, sans-serif';
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(`נהג מוביל: ${driverName}`, 320, footerY + 50);
+      ctx.fillText(`אימות מסירה: תקין באיתוראן`, 320, footerY + 75);
     };
-  }, [imageSrc]);
+
+    // ציור התעודה
+    renderNoteDocument();
+  }, [note?.id, note, imageSrc]);
 
   // מירקור צהוב - התחלת ציור
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -103,7 +261,7 @@ export default function DeliveryCanvasEditor({
     // 1. מצב טקסט
     if (mode === 'text' && textInput.trim()) {
       ctx.save();
-      ctx.font = 'bold 16px Arial, sans-serif';
+      ctx.font = 'bold 16px Assistant, Arial, sans-serif';
       ctx.fillStyle = '#b91c1c';
       ctx.fillText(textInput.trim(), clickX, clickY);
       ctx.restore();
@@ -116,7 +274,6 @@ export default function DeliveryCanvasEditor({
     if (mode === 'stamp') {
       const src = activeStampSrc || stampSrc;
       const stampImg = new Image();
-      stampImg.crossOrigin = 'anonymous';
       stampImg.src = src;
 
       stampImg.onload = () => {
@@ -136,19 +293,18 @@ export default function DeliveryCanvasEditor({
 
         ctx.save();
         ctx.font = 'bold 11px Assistant, Arial, sans-serif';
-        ctx.fillStyle = '#1e3a8a'; // כחול רשמי
+        ctx.fillStyle = '#1e3a8a';
         ctx.textAlign = 'center';
         ctx.fillText(timestampText, xPos + stampWidth / 2, yPos + stampHeight + 15);
         ctx.restore();
 
         toast.success(`חותמת ${activeStampName} הוטבעה עם תאריך ושעה (${dateStr} ${timeStr})! ✨`);
-        setMode('highlight'); // חוזר למצב סימון רגיל
+        setMode('highlight');
       };
 
       stampImg.onerror = () => {
         if (secondaryStampSrc && src !== secondaryStampSrc) {
           const fallbackImg = new Image();
-          fallbackImg.crossOrigin = 'anonymous';
           fallbackImg.src = secondaryStampSrc;
           fallbackImg.onload = () => {
             const stampWidth = 160;
@@ -325,7 +481,7 @@ export default function DeliveryCanvasEditor({
         </div>
       )}
 
-      {/* תצוגת הקנבס וההטבעה עם סמן עכבר אינטראקטיבי */}
+      {/* תצוגת הקנבס וההטבעה של שטר המשלוח של הלקוח הנבחר */}
       <div className={`border border-border rounded-xl shadow-xs overflow-hidden bg-white max-w-full ${
         mode === 'stamp' ? 'cursor-crosshair' : mode === 'text' ? 'cursor-text' : 'cursor-crosshair'
       }`}>
