@@ -71,7 +71,7 @@ const pal = (n: number) => ({
   pallets60060: { delivered: n, billed: n },
 });
 
-const BASE: DeliveryNote[] = [
+export const BASE: DeliveryNote[] = [
   {
     id: "6715751",
     customerNo: "601928",
@@ -529,3 +529,5 @@ export const ORDERS: Order[] = [
 
 export const ils = (n: number) => "₪" + n.toLocaleString("he-IL", { maximumFractionDigits: 0 });
 export const fmtDate = (d: string) => d.split("-").reverse().join("/");
+
+export { API_BASE, fetchNotes, fetchLiveOrders, submitApproval } from "./api";

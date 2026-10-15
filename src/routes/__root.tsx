@@ -110,6 +110,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 import { enableAudioOnFirstTouch, setupOneSignalPushListener } from "../lib/audio-alerts";
+import { flushPendingApprovals } from "../lib/api";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -128,6 +129,12 @@ function RootComponent() {
         .then((reg) => console.log("[PWA] Service worker registered successfully:", reg.scope))
         .catch((err) => console.warn("[PWA] Service worker registration error:", err));
     }
+
+    // 4. Flush any offline-queued approvals when connected
+    void flushPendingApprovals();
+    window.addEventListener("online", () => {
+      void flushPendingApprovals();
+    });
   }, []);
 
   return (

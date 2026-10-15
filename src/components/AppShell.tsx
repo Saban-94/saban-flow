@@ -17,10 +17,12 @@ import {
 } from "lucide-react";
 import noa from "@/assets/noa.jpg";
 import { PWAInstallButton } from "./PWAInstallButton";
+import { useQuery } from "@tanstack/react-query";
+
 import { playDispatchChime, playUrgentSignatureAlarm } from "@/lib/audio-alerts";
 import { toast } from "sonner";
 import { useApprovals } from "@/lib/store";
-import { NOTES } from "@/lib/data";
+import { NOTES, fetchNotes, type DeliveryNote } from "@/lib/data";
 
 const DESKTOP_NAV = [
   { to: "/", label: "דשבורד מנכ״ל", icon: Crown },
@@ -89,8 +91,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     }, 600);
   };
 
+  const { data: notes = NOTES } = useQuery<DeliveryNote[]>({
+    queryKey: ["delivery-notes"],
+    queryFn: fetchNotes,
+    initialData: NOTES,
+    staleTime: 30000,
+  });
+
   // Recent audit log entries
-  const readyNotesCount = NOTES.filter(
+  const readyNotesCount = notes.filter(
     (n) => approvalsState[n.id]?.rami && !approvalsState[n.id]?.harel,
   ).length;
 
@@ -283,36 +292,46 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
 
-          <div className="space-y-1.5 text-[11px] max-h-40 overflow-y-auto">
-            <div className="rounded-xl bg-muted/40 p-2 flex items-start gap-2 border border-border/40">
-              <Truck className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-foreground">הצלבת איתוראן חכמת:</span>
-                <span className="text-muted-foreground block">
-                  38 דק׳ עמידה בנח 3 ת״א — אומת 100% 🟢
-                </span>
-              </div>
-            </div>
+          <div className="space-y-1.5 text-[11px] max-h-48 overflow-y-auto">
+            {notes.slice(0, 4).map((n) => {
+              const b = n.deposits.bales60002;
+              const p = n.deposits.pallets60060;
+              const isBaleMatched = b.delivered === b.billed;
+              const isPalletMatched = p.delivered === p.billed;
 
-            <div className="rounded-xl bg-muted/40 p-2 flex items-start gap-2 border border-border/40">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-foreground">אימות 1:1 פקדונות:</span>
-                <span className="text-muted-foreground block">
-                  15 בלות 60002 תואמות לחיוב לקוח 632122
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-muted/40 p-2 flex items-start gap-2 border border-border/40">
-              <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-foreground">חריגת שהייה ת.מ. 6715753:</span>
-                <span className="text-muted-foreground block">
-                  11 דק׳ — קצר ממשך הנפה. נדרש אישור ראמי
-                </span>
-              </div>
-            </div>
+              return (
+                <div
+                  key={n.id}
+                  className="rounded-xl bg-muted/40 p-2.5 flex items-start gap-2 border border-border/40 hover:bg-muted/60 transition"
+                >
+                  <div className="shrink-0 mt-0.5">
+                    {n.gps.status === "ok" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-foreground truncate">{n.customer}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                        #{n.id}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-primary font-semibold">
+                      קומקס #{n.comaxOrder} · {n.yard.split(" ")[0]} {n.yard.split(" ")[1]}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      פקדונות 1:1: {b.delivered} בלות {isBaleMatched ? "✓" : "⚠️"} · {p.delivered}{" "}
+                      משטחים {isPalletMatched ? "✓" : "⚠️"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground italic">
+                      איתוראן: {n.gps.note}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </aside>

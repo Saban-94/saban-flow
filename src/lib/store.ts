@@ -27,11 +27,17 @@ function set(next: State) {
 
 const stamp = () => new Date().toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });
 
+import { submitApproval } from "./api";
+
 export const approvals = {
-  rami: (id: string, note?: string) =>
-    set({ ...state, [id]: { ...state[id], rami: { at: stamp(), note } } }),
-  harel: (id: string, note?: string) =>
-    set({ ...state, [id]: { ...state[id], harel: { at: stamp(), note } } }),
+  rami: (id: string, note?: string) => {
+    set({ ...state, [id]: { ...state[id], rami: { at: stamp(), note } } });
+    void submitApproval(id, "rami", note);
+  },
+  harel: (id: string, note?: string) => {
+    set({ ...state, [id]: { ...state[id], harel: { at: stamp(), note } } });
+    void submitApproval(id, "harel", note);
+  },
   close: (id: string) => set({ ...state, [id]: { ...state[id], closed: stamp() } }),
   reset: (id: string) => {
     const { [id]: _, ...rest } = state;

@@ -66,3 +66,35 @@ describe("Audio Alerts Engine", () => {
     await expect(playDispatchChime()).resolves.not.toThrow();
   });
 });
+
+import { API_BASE, fetchNotes, fetchLiveOrders, submitApproval } from "./api";
+
+describe("Google Apps Script Backend Integration", () => {
+  it("defines the production API_BASE correctly", () => {
+    expect(API_BASE).toBe(
+      "https://script.google.com/macros/s/AKfycbxLKDVRBB6tQVipEelxX5vVRVPSw8mcEatDMdonP0qd1sl5g-BCzhWCuhiAHrBGniH-RQ/exec",
+    );
+  });
+
+  it("fetches notes with offline fallback and proper schema", async () => {
+    const notes = await fetchNotes();
+    expect(Array.isArray(notes)).toBe(true);
+    expect(notes.length).toBeGreaterThan(0);
+    expect(notes[0]?.comaxOrder).toBeDefined();
+    expect(notes[0]?.deposits.bales60002).toBeDefined();
+    expect(notes[0]?.deposits.pallets60060).toBeDefined();
+  }, 12000);
+
+  it("fetches live orders with offline fallback", async () => {
+    const orders = await fetchLiveOrders();
+    expect(Array.isArray(orders)).toBe(true);
+    expect(orders.length).toBeGreaterThan(0);
+    expect(orders[0]?.id).toBeDefined();
+    expect(orders[0]?.items).toBeInstanceOf(Array);
+  }, 12000);
+
+  it("handles submitApproval gracefully", async () => {
+    const res = await submitApproval("6715751", "rami", "בדיקת אינטגרציה");
+    expect(res.success).toBe(true);
+  }, 12000);
+});
