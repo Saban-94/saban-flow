@@ -376,10 +376,11 @@ ${
               )}
             </div>
 
-            {/* עורך הקנבס המלא */}
+            {/* עורך הקנבס המלא עם חותמת ראמי מתוך public/sing-rami.jpg */}
             <DeliveryCanvasEditor
               imageSrc={scanImageSrc}
-              stampSrc={noaStamp}
+              stampSrc="/sing-rami.jpg"
+              secondaryStampSrc={noaStamp}
               onSaveToFolder={handleSaveToFolder}
               onUpdateSheetLog={handleUpdateSheetLog}
             />
