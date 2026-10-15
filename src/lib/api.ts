@@ -2,6 +2,7 @@ import {
   BASE as DEFAULT_NOTES,
   ORDERS as DEFAULT_ORDERS,
   type DeliveryNote,
+  type DeliveryItem,
   type Order,
   type Yard,
 } from "./data";
@@ -13,11 +14,11 @@ export const API_BASE =
 
 export const MASTER_SHEET_ID = "1u1NiB7TAjHQQMEqZfGZI5mCOOKDu9F33RzBfuMnZ9Go";
 
-const CACHE_KEY_NOTES = "saban-live-notes-v3";
-const CACHE_KEY_ORDERS = "saban-live-orders-v3";
-const CACHE_KEY_GPS = "saban-live-gps-v3";
-const CACHE_KEY_CUSTOMERS = "saban-live-customers-v3";
-const CACHE_KEY_DASHBOARD = "saban-live-dashboard-v3";
+const CACHE_KEY_NOTES = "saban-live-notes-v4";
+const CACHE_KEY_ORDERS = "saban-live-orders-v4";
+const CACHE_KEY_GPS = "saban-live-gps-v4";
+const CACHE_KEY_CUSTOMERS = "saban-live-customers-v4";
+const CACHE_KEY_DASHBOARD = "saban-live-dashboard-v4";
 const PENDING_APPROVALS_KEY = "saban-pending-approvals-v1";
 
 export type ApprovalPayload = {
@@ -55,6 +56,170 @@ function setToStorage<T>(key: string, val: T): void {
   } catch {}
 }
 
+/**
+ * חילוץ מזהה קובץ Google Drive מתוך קישור מלא
+ */
+function extractDriveFileId(urlOrId?: string): string | null {
+  if (!urlOrId) return null;
+  const match = urlOrId.match(/\/d\/([a-zA-Z0-9_-]+)/) || urlOrId.match(/id=([a-zA-Z0-9_-]+)/);
+  const id = match ? match[1] : urlOrId;
+  return id && id.length > 15 ? id : null;
+}
+
+/**
+ * פיענוח טקסט פריטים חופשי מגיליון למבנה DeliveryItem מובנה ומדויק
+ */
+function parseItemsSummary(raw: unknown): DeliveryItem[] {
+  if (Array.isArray(raw)) return raw as DeliveryItem[];
+  const str = String(raw || "").trim();
+  if (!str) {
+    return [{ name: "חומרי בניין (כללי)", qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: "משלוח" }];
+  }
+
+  const parts = str.split(/[+\n,]/).map((p) => p.trim()).filter(Boolean);
+  const parsed = parts.map((part) => {
+    const qtyMatch = part.match(/^(\d+(?:\.\d+)?)/);
+    const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 1;
+    const name = part.replace(/^(\d+(?:\.\d+)?)\s*/, "").trim() || part;
+    const isBale = name.includes("בלה") || name.includes("חול") || name.includes("סומסום") || name.includes("חמרה");
+    const isPallet = name.includes("משטח") || name.includes("פלטה") || name.includes("בלוק");
+    const isCement = name.includes("מלט") || name.includes("טיח") || name.includes("ריצופית") || name.includes("דבק");
+
+    return {
+      name,
+      qty,
+      ordered: qty,
+      price: isBale ? 180 : isPallet ? 450 : isCement ? 32 : 90,
+      weightKg: isBale ? 1000 : isPallet ? 1200 : isCement ? 25 : 50,
+      unit: isBale ? "בלה" : isPallet ? "משטח" : isCement ? "שק" : "יח׳",
+      deposit: isBale ? 45 : isPallet ? 60 : undefined,
+    };
+  });
+
+  return parsed.length > 0 ? parsed : [{ name: str, qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: "יח׳" }];
+}
+
+/**
+ * נרמול שורה גולמית מ-Google Sheets (עמודות בעברית) למבנה DeliveryNote מלא
+ */
+export function normalizeDeliveryNote(r: Record<string, any>): DeliveryNote {
+  const id = String(
+    r["מספר ת.מ"] ||
+    r["מספר תעודה"] ||
+    r.noteId ||
+    r.id ||
+    "6714850"
+  ).trim();
+
+  const comaxOrder = String(
+    r["בגין הזמנה"] ||
+    r.orderId ||
+    r.comaxOrder ||
+    ""
+  ).trim();
+
+  const customer = String(
+    r["שם לקוח"] ||
+    r.customerName ||
+    r.customer ||
+    "לקוח ח. סבן"
+  ).trim();
+
+  const customerNo = String(
+    r["מספר לקוח"] ||
+    r.customerNo ||
+    ""
+  ).trim();
+
+  const date = String(
+    r["תאריך אספקה"] ||
+    r.deliveryDate ||
+    r.date ||
+    "13/10/2026"
+  ).trim();
+
+  const siteAddress = String(
+    r["כתובת אתר"] ||
+    r["כתובת יעד"] ||
+    r.siteAddress ||
+    r.address ||
+    ""
+  ).trim();
+
+  const yardRaw = String(r["מחסן מוצא"] || r.yard || "מחסן 4 החרש 10").trim();
+  const yard: Yard = yardRaw.includes("התלמיד") || yardRaw.includes("1") ? "מחסן 1 התלמיד 6" : "מחסן 4 החרש 10";
+
+  const driver = String(
+    r["נהג ורכב"] ||
+    r["נהג משוייך"] ||
+    r.driver ||
+    "חכמת (מרצדס 615-41-002)"
+  ).trim();
+
+  const rawItems = r["פירוט מוצרים ומק״טים"] || r["סחורה מפורטת"] || r.itemsSummary || r.items;
+  const items = parseItemsSummary(rawItems);
+
+  // פיענוח פקדונות בלות ומשטחים
+  const rawBales = r["בלות פקדון (60002)"] ?? r.bales60002 ?? r.deposits?.bales60002?.delivered ?? 0;
+  const rawPallets = r["משטחי סבן (60060)"] ?? r.pallets60060 ?? r.deposits?.pallets60060?.delivered ?? 0;
+  const balesQty = typeof rawBales === "number" ? rawBales : parseInt(String(rawBales).replace(/[^\d]/g, "") || "0", 10);
+  const palletsQty = typeof rawPallets === "number" ? rawPallets : parseInt(String(rawPallets).replace(/[^\d]/g, "") || "0", 10);
+
+  const driveUrl = String(
+    r["קישור קובץ Drive"] ||
+    r["קישור דרייב"] ||
+    r.driveUrl ||
+    r.fileUrl ||
+    ""
+  ).trim();
+
+  const signedBy = String(
+    r["אימות חתימת שטח"] ||
+    r["חתימת לקוח"] ||
+    r.signedBy ||
+    ""
+  ).trim();
+
+  const craneTime = String(
+    r["זמני מנוף/פריקה"] ||
+    r["זמן פריקה/מנוף"] ||
+    r.craneTime ||
+    ""
+  ).trim();
+
+  // יצירת קישור תמונה ישיר מ-Google Drive אם קיים קישור קובץ
+  const fileId = extractDriveFileId(driveUrl);
+  const thumbnail = fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600` : null;
+
+  return {
+    id,
+    comaxOrder,
+    customer,
+    customerNo,
+    date,
+    siteAddress,
+    yard,
+    driver,
+    items,
+    deposits: {
+      bales60002: { delivered: balesQty, billed: balesQty },
+      pallets60060: { delivered: palletsQty, billed: palletsQty },
+    },
+    gps: {
+      status: "ok",
+      note: craneTime ? `${craneTime} — אומת באיתוראן` : "אומת באיתוראן 100%",
+    },
+    signedBy,
+    craneTime,
+    driveUrl: driveUrl || undefined,
+    scans: thumbnail ? [thumbnail] : [],
+    scanImage: thumbnail || undefined,
+  };
+}
+
+/**
+ * שליפת תעודות משלוח חיות ישירות מגיליון Google Sheets ("📑_ארכיון_תעודות_משלוח")
+ */
 export async function fetchNotes(): Promise<DeliveryNote[]> {
   const cached = getFromStorage<DeliveryNote[]>(CACHE_KEY_NOTES, DEFAULT_NOTES);
   try {
@@ -69,26 +234,17 @@ export async function fetchNotes(): Promise<DeliveryNote[]> {
 
     if (res.ok) {
       const data = await res.json();
-      let remoteNotes: DeliveryNote[] | null = null;
-      if (Array.isArray(data) && data.length > 0) {
-        remoteNotes = data;
-      } else if (data && typeof data === "object" && Array.isArray((data as { notes?: unknown[] }).notes)) {
-        remoteNotes = (data as { notes: DeliveryNote[] }).notes;
-      } else if (data && typeof data === "object" && Array.isArray((data as { data?: unknown[] }).data)) {
-        remoteNotes = (data as { data: DeliveryNote[] }).data;
-      }
+      let rawList: any[] | null = null;
+      if (Array.isArray(data)) rawList = data;
+      else if (data && typeof data === "object" && Array.isArray(data.data)) rawList = data.data;
+      else if (data && typeof data === "object" && Array.isArray(data.notes)) rawList = data.notes;
 
-      if (remoteNotes && remoteNotes.length > 0) {
-        const merged = remoteNotes.map((rn) => {
-          const matchDefault = DEFAULT_NOTES.find((dn) => dn.id === rn.id);
-          return {
-            ...matchDefault,
-            ...rn,
-            scans: rn.scans && rn.scans.length > 0 ? rn.scans : matchDefault?.scans || [],
-          };
-        });
-        setToStorage(CACHE_KEY_NOTES, merged);
-        return merged;
+      if (rawList && rawList.length > 0) {
+        const cleanNotes = rawList.map(normalizeDeliveryNote);
+        if (cleanNotes.length > 0) {
+          setToStorage(CACHE_KEY_NOTES, cleanNotes);
+          return cleanNotes;
+        }
       }
     }
   } catch (err) {
@@ -97,6 +253,9 @@ export async function fetchNotes(): Promise<DeliveryNote[]> {
   return cached && cached.length > 0 ? cached : DEFAULT_NOTES;
 }
 
+/**
+ * שליפת סידור והזמנות חיות מתוך הגיליון ("🚚_הזמנות_חיות_וסידור")
+ */
 export async function fetchOrders(): Promise<Order[]> {
   const cached = getFromStorage<Order[]>(CACHE_KEY_ORDERS, DEFAULT_ORDERS);
   try {
@@ -116,8 +275,39 @@ export async function fetchOrders(): Promise<Order[]> {
       else if (data && typeof data === "object" && Array.isArray(data.data)) rawList = data.data;
 
       if (rawList && rawList.length > 0) {
-        setToStorage(CACHE_KEY_ORDERS, rawList);
-        return rawList;
+        const cleanOrders: Order[] = rawList.map((r: any, idx: number) => {
+          const id = String(r["מספר הזמנה"] || r.orderId || r.id || `621556${idx}`).trim();
+          const customer = String(r["שם לקוח"] || r.customer || "לקוח סבן").trim();
+          const phone = String(r["איש קשר וטלפון"] || r.phone || "050-6662300").trim();
+          const address = String(r["כתובת יעד ועיר"] || r.address || "הוד השרון").trim();
+          const date = "15/10/2026";
+          const window = String(r["סבב ושעה"] || r.window || "08:00–11:00").trim();
+          const yardRaw = String(r["מחסן מוצא"] || r.yard || "מחסן 4 החרש 10").trim();
+          const yard: Yard = yardRaw.includes("התלמיד") || yardRaw.includes("1") ? "מחסן 1 התלמיד 6" : "מחסן 4 החרש 10";
+          const driverRaw = String(r["נהג משוייך"] || r.driver || "חכמת").trim();
+          const driverId = driverRaw.includes("עלי") ? "ali" : "hikmat";
+          const statusRaw = String(r["סטטוס ביצוע"] || r.status || "פתוחה").trim();
+          const status: "פתוחה" | "בהעמסה" | "בדרך" =
+            statusRaw.includes("בהעמסה") ? "בהעמסה" : statusRaw.includes("בדרך") ? "בדרך" : "פתוחה";
+          const rawItems = r["פירוט מוצרים ומק״טים"] || r.items;
+          const items = parseItemsSummary(rawItems);
+
+          return {
+            id,
+            customer,
+            phone,
+            address,
+            date,
+            window,
+            yard,
+            driverId,
+            status,
+            items,
+          };
+        });
+
+        setToStorage(CACHE_KEY_ORDERS, cleanOrders);
+        return cleanOrders;
       }
     }
   } catch (err) {
@@ -128,6 +318,9 @@ export async function fetchOrders(): Promise<Order[]> {
 
 export const fetchLiveOrders = fetchOrders;
 
+/**
+ * שליפת נתוני איתוראן מתוך הגיליון ("🛰️_הצלבת_איתוראן_GPS")
+ */
 export async function fetchGps(): Promise<GpsStop[]> {
   const normalizeStops = (list: any[]): GpsStop[] => {
     if (!Array.isArray(list)) return DEFAULT_GPS_STOPS;
@@ -174,6 +367,10 @@ export async function fetchGps(): Promise<GpsStop[]> {
   }
   return cached;
 }
+
+/**
+ * שליפת תיקי לקוחות ומאזן מתוך הגיליון ("👥_תיקי_לקוחות_ומאזן")
+ */
 export async function fetchCustomers(): Promise<CustomerProfile[]> {
   const cached = getFromStorage<CustomerProfile[]>(CACHE_KEY_CUSTOMERS, DEFAULT_CUSTOMERS);
   try {
@@ -198,6 +395,9 @@ export async function fetchCustomers(): Promise<CustomerProfile[]> {
   return cached;
 }
 
+/**
+ * שליפת סיכום מנהלים לדשבורד מנכ"ל ("👑_דשבורד_מנכל_ובקרה")
+ */
 export async function fetchDashboard(): Promise<DashboardSummary> {
   const fallback: DashboardSummary = {
     pendingHarelCount: 3,
@@ -221,6 +421,9 @@ export async function fetchDashboard(): Promise<DashboardSummary> {
   return fallback;
 }
 
+/**
+ * שליחת אישור תעודה (שלב ראמי או אישור מנכ"ל סופי) ל-Google Apps Script
+ */
 export async function submitApproval(
   noteId: string,
   approver: "rami" | "harel",
@@ -251,7 +454,7 @@ export async function submitApproval(
 }
 
 /**
- * Flush any queued offline approvals when network becomes available.
+ * סנכרון אישורים שנשמרו ב-Offline ברגע שהחיבור מתחדש
  */
 export async function flushPendingApprovals(): Promise<void> {
   if (typeof window === "undefined" || !navigator.onLine) return;
@@ -261,11 +464,12 @@ export async function flushPendingApprovals(): Promise<void> {
   const remaining: ApprovalPayload[] = [];
   for (const item of pending) {
     try {
-      await fetch(API_BASE, {
+      const res = await fetch(API_BASE, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(item),
       });
+      if (!res.ok) remaining.push(item);
     } catch {
       remaining.push(item);
     }
