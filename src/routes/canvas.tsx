@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DeliveryCanvasEditor from '@/components/DeliveryCanvasEditor';
-import { NOTES, auditNote, ils, type DeliveryNote } from '@/lib/data';
+import { NOTES, type DeliveryNote } from '@/lib/data';
 import { fetchNotes, submitApproval } from '@/lib/api';
 import defaultScan from '@/assets/delivery-note.jpg';
 import noaStamp from '@/assets/noa.jpg';
@@ -43,6 +43,64 @@ function getDriveThumbnailUrl(driveUrlOrId?: string): string | null {
   return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
 }
 
+/**
+ * פונקציית ביקורת עצמאית ומוגנת ב-100% משגיאות undefined.forEach
+ */
+function auditNoteSafe(n?: DeliveryNote): {
+  status: 'ok' | 'warn' | 'fail';
+  findings: { status: 'ok' | 'warn' | 'fail'; text: string }[];
+} {
+  const findings: { status: 'ok' | 'warn' | 'fail'; text: string }[] = [];
+  if (!n) return { status: 'ok', findings: [{ status: 'ok', text: 'תעודה בטעינה' }] };
+
+  const items = Array.isArray(n.items) ? n.items : [];
+  items.forEach((i) => {
+    if (i && typeof i.qty === 'number' && typeof i.ordered === 'number' && i.qty !== i.ordered) {
+      findings.push({
+        status: 'warn',
+        text: `${i.name || 'פריט'}: סופק ${i.qty} מול ${i.ordered} בהזמנת קומקס`,
+      });
+    }
+  });
+
+  const b = n.deposits?.bales60002 || { delivered: 0, billed: 0 };
+  const p = n.deposits?.pallets60060 || { delivered: 0, billed: 0 };
+
+  if (b.delivered !== b.billed) {
+    findings.push({
+      status: 'fail',
+      text: `בלות פקדון 60002: ${b.delivered} סופקו, ${b.billed} חויבו`,
+    });
+  } else if (b.delivered) {
+    findings.push({ status: 'ok', text: `בלות 60002 תואמות 1:1 (${b.delivered})` });
+  }
+
+  if (p.delivered !== p.billed) {
+    findings.push({
+      status: 'fail',
+      text: `משטחי עץ 60060: ${p.delivered} סופקו, ${p.billed} חויבו`,
+    });
+  } else if (p.delivered) {
+    findings.push({ status: 'ok', text: `משטחי 60060 תואמים 1:1 (${p.delivered})` });
+  }
+
+  if (n.gps) {
+    findings.push({ status: n.gps.status, text: `איתוראן: ${n.gps.note}` });
+  }
+
+  if (!findings.some((f) => f.status !== 'ok')) {
+    findings.unshift({ status: 'ok', text: 'כמויות תואמות להזמנת קומקס' });
+  }
+
+  const status: 'ok' | 'warn' | 'fail' = findings.some((f) => f.status === 'fail')
+    ? 'fail'
+    : findings.some((f) => f.status === 'warn')
+      ? 'warn'
+      : 'ok';
+
+  return { status, findings };
+}
+
 interface ChatMessage {
   id: string;
   sender: 'noa' | 'rami';
@@ -78,13 +136,23 @@ function CanvasPageRoute() {
     }
   }, [notesList, selectedNoteId]);
 
+  // חילוץ תעודה מוגנת ב-100% מפני ערכי undefined
   const currentNote = useMemo(() => {
-    return notesList.find((n) => n.id === selectedNoteId) || notesList[0];
+    const raw = notesList.find((n) => n.id === selectedNoteId) || notesList[0] || NOTES[0];
+    if (!raw) return NOTES[0];
+    return {
+      ...raw,
+      items: Array.isArray(raw.items) ? raw.items : [],
+      deposits: {
+        bales60002: raw.deposits?.bales60002 || { delivered: 0, billed: 0 },
+        pallets60060: raw.deposits?.pallets60060 || { delivered: 0, billed: 0 },
+      },
+    };
   }, [notesList, selectedNoteId]);
 
   // בדיקת ביקורת חוק הפקדונות והכמויות של נועה עבור התעודה
   const audit = useMemo(() => {
-    return auditNote(currentNote);
+    return auditNoteSafe(currentNote);
   }, [currentNote]);
 
   // תמונת הסריקה - עדיפות ל-Thumbnail ישיר מ-Google Drive של התעודה המפוצלת בגיליון
@@ -110,8 +178,8 @@ function CanvasPageRoute() {
     const palletsDelivered = currentNote.deposits?.pallets60060?.delivered ?? 0;
     const palletsBilled = currentNote.deposits?.pallets60060?.billed ?? 0;
 
-    const itemsSummary = currentNote.items
-      ? currentNote.items.map((i) => `${i.name} (${i.qty} ${i.unit})`).join(', ')
+    const itemsSummary = currentNote.items && currentNote.items.length > 0
+      ? currentNote.items.map((i) => `${i.name || 'פריט'} (${i.qty || 1} ${i.unit || 'יח׳'})`).join(', ')
       : 'חומרי בניין כללי';
 
     const fullAnalysis = `שלום ראמי, סרקתי וניתחתי את תעודה #${currentNote.comaxOrder || currentNote.id} עבור ${currentNote.customer}:
