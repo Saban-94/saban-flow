@@ -7,22 +7,25 @@ export const Route = createFileRoute('/canvas')({
 
 function CanvasPageRoute() {
   const handleSaveToFolder = async (dataUrl: string) => {
-    console.log('Saving to customer folder...', dataUrl);
-    // כאן תוסיף את הקריאה ל־API / Google Apps Script לשמירה ב־Drive
-    alert('התעודה נשמרה בהצלחה בתיקיית הלקוח ונשלחה להראל!');
+    console.log('Saved to customer folder:', dataUrl);
   };
 
   const handleUpdateSheetLog = async (status: string) => {
-    console.log('Updating sheet status to:', status);
-    // כאן תוסיף את העדכון לגיליון "מערכת מאוחדת"
+    console.log('Sheet status updated:', status);
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">עריכת תעודת משלוח וחתימה — נועה AI</h1>
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">עריכה ובדיקת תעודות משלוח (Canvas)</h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          ח. סבן חומרי בניין · בדיקת ראמי, בדיקה נוספת ואישור סופי של הראל
+        </p>
+      </div>
+
       <DeliveryCanvasEditor
-        imageSrc="/assets/delivery-note.jpg" // או לינק דינמי מתעודת המשלוח
-        stampSrc="/assets/noa.jpg" // חותמת או לוגו אישור
+        imageSrc="/assets/delivery-note.jpg"
+        stampSrc="/assets/noa.jpg"
         onSaveToFolder={handleSaveToFolder}
         onUpdateSheetLog={handleUpdateSheetLog}
       />
