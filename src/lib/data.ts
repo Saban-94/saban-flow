@@ -1,3 +1,70 @@
+export type Yard = "מחסן 4 החרש 10" | "מחסן 1 התלמיד 6";
+export type AuditStatus = "ok" | "warn" | "fail";
+
+export type Driver = {
+  id: string;
+  name: string;
+  phone: string;
+  truck: string;
+};
+
+export type DeliveryItem = {
+  name: string;
+  qty: number;
+  ordered: number;
+  price: number;
+  weightKg: number;
+  unit: string;
+  deposit?: number;
+};
+
+export type DeliveryNote = {
+  id: string;
+  customer: string;
+  date: string;
+  items: DeliveryItem[];
+  deposits?: {
+    bales60002?: { delivered: number; billed: number };
+    pallets60060?: { delivered: number; billed: number };
+  };
+  gps?: { status: AuditStatus; note: string };
+};
+
+export type Order = {
+  id: string;
+  customer: string;
+  phone: string;
+  address: string;
+  date: string;
+  window: string;
+  yard: Yard;
+  driverId: string | null;
+  status: "פתוחה" | "בהעמסה" | "בדרך";
+  items: { name: string; qty: number; unit: string; weightKg: number; deposit?: number }[];
+};
+
+export const DRIVERS: Driver[] = [
+  { id: "hikmat", name: "חכמת מנוף", phone: "050-0000000", truck: "מנוף 18000" },
+  { id: "ali", name: "עלי משאית", phone: "050-1111111", truck: "משאית שטוחה 818000" },
+];
+
+export const BASE: DeliveryNote[] = [
+  {
+    id: "TN-9901",
+    customer: "ש. לוי שיפוצים",
+    date: "2026-10-15",
+    items: [
+      { name: "בלוק 20/40/20", qty: 6, ordered: 6, price: 450, weightKg: 1300, unit: "משטח" },
+      { name: "מלט 50 ק״ג", qty: 40, ordered: 40, price: 25, weightKg: 50, unit: "שק" },
+    ],
+    deposits: {
+      bales60002: { delivered: 2, billed: 2 },
+      pallets60060: { delivered: 6, billed: 6 },
+    },
+    gps: { status: "ok", note: "המשאית הגיעה ליעד בהצלחה" },
+  },
+];
+
 export const NOTES = BASE;
 
 export const noteTotal = (n: DeliveryNote) => n.items.reduce((s, i) => s + i.qty * i.price, 0);
@@ -40,19 +107,6 @@ export function auditNote(n: DeliveryNote): { status: AuditStatus; findings: { s
       : "ok";
   return { status, findings };
 }
-
-export type Order = {
-  id: string;
-  customer: string;
-  phone: string;
-  address: string;
-  date: string;
-  window: string;
-  yard: Yard;
-  driverId: string | null;
-  status: "פתוחה" | "בהעמסה" | "בדרך";
-  items: { name: string; qty: number; unit: string; weightKg: number; deposit?: number }[];
-};
 
 export const ORDERS: Order[] = [
   {
@@ -113,6 +167,14 @@ export const ORDERS: Order[] = [
     ],
   },
 ];
+
+export function fetchNotes(): DeliveryNote[] {
+  return NOTES;
+}
+
+export function fetchLiveOrders(): Order[] {
+  return ORDERS;
+}
 
 export const ils = (n: number) => "₪" + n.toLocaleString("he-IL", { maximumFractionDigits: 0 });
 export const fmtDate = (d: string) => d.split("-").reverse().join("/");
