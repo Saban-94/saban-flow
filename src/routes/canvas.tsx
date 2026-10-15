@@ -2,6 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import DeliveryCanvasEditor from '@/components/DeliveryCanvasEditor';
 import { NOTES } from '@/lib/data';
+import defaultScan from '@/assets/delivery-note.jpg';
+import noaStamp from '@/assets/noa.jpg';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -11,21 +13,16 @@ export const Route = createFileRoute('/canvas')({
 });
 
 function CanvasPageRoute() {
-  // בחירת תעודה מתוך הרשימה או ברירת מחדל
   const [selectedNoteId, setSelectedNoteId] = useState(NOTES[0]?.id || '1');
-  
-  // מיפוי תמונת סריקה לדוגמה (או קובץ PDF שהומר לתמונה)
   const currentNote = NOTES.find(n => n.id === selectedNoteId) || NOTES[0];
-  const scanImageSrc = `/assets/scans/p02.jpg`; // או תמונה דינמית מתוך תיקיית הלקוח/סריקות
+  const scanImageSrc = currentNote?.scanImage || defaultScan;
 
   const handleSaveToFolder = async (dataUrl: string) => {
-    // שמירה בתיקיית הלקוח ב־Google Drive / שרת
     console.log('Saving final canvas to customer folder...', dataUrl);
     toast.success(`תעודה עבור לקוח ${currentNote.customer} נשמרה בהצלחה בתיקיית הלקוח! 📁`);
   };
 
   const handleUpdateSheetLog = async (statusMessage: string) => {
-    // עדכון בגיליון "מערכת מאוחדת" / "נועה AI"
     console.log('Updating Google Sheets status:', statusMessage);
     toast.info(`סטטוס עודכן בגיליון: ${statusMessage}`);
   };
@@ -59,10 +56,9 @@ function CanvasPageRoute() {
         </div>
       </div>
 
-      {/* קומפוננטת הקנבס המלאה */}
       <DeliveryCanvasEditor
         imageSrc={scanImageSrc}
-        stampSrc="/assets/noa.jpg"
+        stampSrc={noaStamp}
         onSaveToFolder={handleSaveToFolder}
         onUpdateSheetLog={handleUpdateSheetLog}
       />
