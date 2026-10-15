@@ -1,9 +1,7 @@
+import * as React from "react";
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-
-import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/AppShell";
-import { CUSTOMERS, calculateTotalCustomerDeposits, type CustomerTag, type CustomerProfile } from "@/lib/customers-data";
-import { fetchCustomers } from "@/lib/data";
+import { CUSTOMERS, calculateTotalCustomerDeposits, type CustomerTag } from "@/lib/customers-data";
 import {
   Users,
   Package,
@@ -15,11 +13,8 @@ import {
   FolderOpen,
   ChevronLeft,
   Truck,
-  ShieldCheck,
   AlertCircle,
-  RefreshCw,
 } from "lucide-react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -39,7 +34,8 @@ export const Route = createFileRoute("/customers")({
 
 function CustomersLayout() {
   const { pathname } = useLocation();
-  return pathname === "/customers" || pathname === "/customers/" ? <CustomersList /> : <Outlet />;
+  const isList = pathname === "/customers" || pathname === "/customers/";
+  return isList ? <CustomersList /> : <Outlet />;
 }
 
 const TAG_COLORS: Record<CustomerTag, string> = {
@@ -50,20 +46,13 @@ const TAG_COLORS: Record<CustomerTag, string> = {
 };
 
 function CustomersList() {
-  const [search, setSearch] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string>("הכל");
+  const [search, setSearch] = React.useState("");
+  const [selectedTag, setSelectedTag] = React.useState<string>("הכל");
 
-  const { data: customerList = CUSTOMERS, isFetching, refetch } = useQuery<CustomerProfile[]>({
-    queryKey: ["customers"],
-    queryFn: fetchCustomers,
-    initialData: CUSTOMERS,
-    staleTime: 30000,
-  });
+  const kpis = React.useMemo(() => calculateTotalCustomerDeposits(), []);
 
-  const kpis = useMemo(() => calculateTotalCustomerDeposits(), []);
-
-  const filteredCustomers = useMemo(() => {
-    return customerList.filter((c) => {
+  const filteredCustomers = React.useMemo(() => {
+    return CUSTOMERS.filter((c) => {
       const q = search.trim().toLowerCase();
       const matchSearch =
         !q ||
@@ -77,8 +66,7 @@ function CustomersList() {
 
       return matchSearch && matchTag;
     });
-  }, [customerList, search, selectedTag]);
-
+  }, [search, selectedTag]);
 
   const tags = ["הכל", "לקוח עוגן", "שוטף מאושר", "דורש תשלום במזומן", "מלגזה באתר"];
 
@@ -89,8 +77,8 @@ function CustomersList() {
         subtitle="תיקיות לקוחות / [מספר לקוח] - [שם לקוח] · יתרות פקדונות ושיבוצי פריקה"
       />
 
-      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-8">
-        {/* Top KPI Cards */}
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-8" dir="rtl">
+        {/* כרטיסי KPI עליונים */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-4 rounded-3xl bg-card p-5 shadow-card border border-border/60">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-600">
@@ -140,7 +128,7 @@ function CustomersList() {
           </div>
         </div>
 
-        {/* Search & Tag Filter Bar */}
+        {/* שורת חיפוש וסינון תגיות */}
         <div className="rounded-3xl bg-card p-4 shadow-card border border-border/60 space-y-3">
           <div className="relative">
             <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -170,7 +158,7 @@ function CustomersList() {
           </div>
         </div>
 
-        {/* Customer Cards Grid */}
+        {/* רשת כרטיסי לקוחות */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {filteredCustomers.map((c) => (
             <article
@@ -178,7 +166,6 @@ function CustomersList() {
               className="flex flex-col justify-between rounded-3xl bg-card p-5 shadow-card border border-border/60 hover:border-primary/40 transition duration-150"
             >
               <div>
-                {/* Header Row */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
@@ -207,7 +194,6 @@ function CustomersList() {
                   </Link>
                 </div>
 
-                {/* Contact & Location Info */}
                 <div className="mt-3.5 space-y-1.5 text-xs text-foreground/80">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-muted-foreground">איש קשר:</span>
@@ -226,7 +212,6 @@ function CustomersList() {
                   </div>
                 </div>
 
-                {/* Deposit balances pill */}
                 <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-muted/40 p-2.5 text-center text-xs">
                   <div className="border-l border-border/60">
                     <span className="text-[11px] text-muted-foreground block">
@@ -247,7 +232,6 @@ function CustomersList() {
                 </div>
               </div>
 
-              {/* Action Buttons Row */}
               <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-3 text-xs">
                 <div className="flex items-center gap-2">
                   <a
