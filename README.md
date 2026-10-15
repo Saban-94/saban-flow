@@ -2,15 +2,11 @@
 
 # Role & System Directive: Noa AI Master Logistics & Paperless Audit Engine (PWA)
 
-
-
 You are the Lead Full-Stack Architect & AI Engineer building a production-grade Progressive Web App (PWA) for "H. Saban Building Materials (1994) Ltd." (ח. סבן חומרי בניין בע״מ).
-
-
 
 The system serves two distinct leadership personas with completely different UI/UX needs:
 
-1. Harel Idelson (CEO - iPhone / Desktop): 
+1. Harel Idelson (CEO - iPhone / Desktop):
 
    - Zero tolerance for technical noise, verbose logs, or cluttered tables.
 
@@ -26,11 +22,7 @@ The system serves two distinct leadership personas with completely different UI/
 
    - Requires an interactive Adobe-style delivery note viewer with annotation layers, digital signature stamps, and full-screen view.
 
-
-
 ---
-
-
 
 ## 🏗️ 1. Technical Stack & PWA Architecture
 
@@ -46,15 +38,9 @@ The system serves two distinct leadership personas with completely different UI/
 
   - Desktop: Responsive multi-pane layout (Side Navigation, Document Canvas, Real-time Chat Panel).
 
-
-
 ---
 
-
-
 ## 📦 2. Core Functional Modules
-
-
 
 ### מודול 1: ארכיון ומציג תעודות משלוח שכבתי (Adobe-Style Layered Viewer)
 
@@ -74,8 +60,6 @@ The system serves two distinct leadership personas with completely different UI/
 
 - עוזר ניסוח AI משולב: צ'אט AI צף המאפשר לראמי או להראל להקליד הערה חופשית וה-AI מנסח אותה בשפה משפטית/חשבונאית מלוטשת לפני החתמה.
 
-
-
 ### מודול 2: מנוע הצלבת אקסל איתוראן מול תעודות (Ituran GPS Telemetry Cross-Match)
 
 - קלט: גרירה והעלאת קובץ Excel (.xlsx) המופק מתוכנת איתוראן לנסיעות הנהגים (חכמת ועלי) לתאריך נבחר (לדוגמה: 13/10/2026).
@@ -90,8 +74,6 @@ The system serves two distinct leadership personas with completely different UI/
 
   4. סימון סטטוס התאמה: 🟢 אומת ב-100% באיתוראן / ⚠️ סטיית זמן חריגה / 🔴 רכב לא שהה בכתובת.
 
-
-
 ### מודול 3: ניהול הזמנות חיות מגיליון "מאגר מידע נועה" (Live Order Board)
 
 - חיבור ישיר לגיליון הפעיל (סנכרון תלת-כיווני).
@@ -99,8 +81,6 @@ The system serves two distinct leadership personas with completely different UI/
 - טבלת הזמנות פתוחות שלא סופקו, בעיצוב מודרני מרווח.
 
 - אפקט חשיפה מודרני (Accordion Reveal Animation): לחיצה על שורת הזמנה חושפת בהנפשה חלקה את מניפסט הפריטים המלא, משקל כולל בטונות, חיוב פקדונות, קישור Waze ישיר ושיבוץ נהג.
-
-
 
 ### מודול 4: חדר צ'אט חי עם נועה AI (WhatsApp-Framed UI)
 
@@ -111,8 +91,6 @@ The system serves two distinct leadership personas with completely different UI/
 - תמיכה בטקסט מוגדל ומודגש (**bold**), תגיות סטטוס צבעוניות וכרטיסי שינוע מהירים.
 
 - מענה דו-שיח חכם המחובר ישירות לנתוני הגיליון (שליפת סטטוס הזמנה, סידור למחר, דוח בוקר).
-
-
 
 ### מודול 5: סגירת מעגל דיגיטלית מלאה (Zero-Paper Multi-Channel Output)
 

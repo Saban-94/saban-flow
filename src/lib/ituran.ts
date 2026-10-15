@@ -2,21 +2,35 @@ import type { AuditStatus, DeliveryNote } from "./data";
 
 export type GpsStop = { plate: string; address: string; arrive: string; depart: string };
 
-const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
+const toMin = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
 
 export const DWELL_RULES = { crane: [25, 45], flatbed: [15, 25] } as const;
 
 /** Cross-match one delivery note against GPS stops. */
-export function crossMatch(note: Pick<DeliveryNote, "site" | "signedAt">, kind: "crane" | "flatbed", plate: string, stops: GpsStop[]):
-  { status: AuditStatus; dwell: number | null; label: string; stop?: GpsStop } {
-  const street = (note.site.split(",")[0] ?? "").replace(/רח׳|שד׳/g, "").trim().split(" ")[0] ?? "";
-  const stop = stops.find((s) => s.plate.replace(/\D/g, "") === plate.replace(/\D/g, "") && s.address.includes(street));
+export function crossMatch(
+  note: Pick<DeliveryNote, "site" | "signedAt">,
+  kind: "crane" | "flatbed",
+  plate: string,
+  stops: GpsStop[],
+): { status: AuditStatus; dwell: number | null; label: string; stop?: GpsStop } {
+  const street =
+    (note.site.split(",")[0] ?? "")
+      .replace(/רח׳|שד׳/g, "")
+      .trim()
+      .split(" ")[0] ?? "";
+  const stop = stops.find(
+    (s) => s.plate.replace(/\D/g, "") === plate.replace(/\D/g, "") && s.address.includes(street),
+  );
   if (!stop) return { status: "fail", dwell: null, label: "🔴 רכב לא שהה בכתובת" };
   const dwell = toMin(stop.depart) - toMin(stop.arrive);
   const [min, max] = DWELL_RULES[kind];
   const sign = toMin(note.signedAt);
   const signInside = sign >= toMin(stop.arrive) - 5 && sign <= toMin(stop.depart) + 5;
-  if (dwell >= min && dwell <= max + 10 && signInside) return { status: "ok", dwell, stop, label: "🟢 אומת ב-100% באיתוראן" };
+  if (dwell >= min && dwell <= max + 10 && signInside)
+    return { status: "ok", dwell, stop, label: "🟢 אומת ב-100% באיתוראן" };
   return { status: "warn", dwell, stop, label: "⚠️ סטיית זמן חריגה" };
 }
 

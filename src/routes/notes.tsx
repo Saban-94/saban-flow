@@ -5,7 +5,10 @@ export const Route = createFileRoute("/notes")({
   head: () => ({
     meta: [
       { title: "ארכיון תעודות משלוח — נועה ח. סבן" },
-      { name: "description", content: "חיפוש וסינון תעודות משלוח שנסרקו ע״י גליה, לפי לקוח, תאריך ומחסן." },
+      {
+        name: "description",
+        content: "חיפוש וסינון תעודות משלוח שנסרקו ע״י גליה, לפי לקוח, תאריך ומחסן.",
+      },
       { property: "og:title", content: "ארכיון תעודות משלוח — ח. סבן" },
       { property: "og:description", content: "תעודות משלוח סרוקות עם בקרת נועה AI." },
     ],

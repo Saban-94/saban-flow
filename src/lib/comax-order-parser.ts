@@ -63,9 +63,7 @@ const depositSku = (sku: string) => ["60002", "60060", "60006"].includes(sku);
 
 export function parseComaxOrder({ text, catalog = {} }: ComaxParseOptions): ComaxOrder {
   const orderNumber =
-    text.match(/(?:מספר הזמנה|הזמנה)\D{0,10}(\d{6,})/)?.[1] ??
-    text.match(/\b62\d{5}\b/)?.[0] ??
-    "";
+    text.match(/(?:מספר הזמנה|הזמנה)\D{0,10}(\d{6,})/)?.[1] ?? text.match(/\b62\d{5}\b/)?.[0] ?? "";
 
   const customerMatch = text.match(/([^\n()]+)\s*\((\d{5,})\)/);
   const warehouse = text.includes("התלמיד") ? "מחסן 1 התלמיד 6" : "מחסן 4 החרש 10";
@@ -74,14 +72,13 @@ export function parseComaxOrder({ text, catalog = {} }: ComaxParseOptions): Coma
     .split(/\r?\n/)
     .map((line, lineIndex) => {
       const m = line.match(
-        /^\s*(\d+)\s+(\d{4,6})\s+(.+?)\s+(שק|בלה(?:\s*\/\s*שק גד)?|משטח|יח['׳]|דלי)\s+(-?\d+(?:\.\d+)?)\s*$/
+        /^\s*(\d+)\s+(\d{4,6})\s+(.+?)\s+(שק|בלה(?:\s*\/\s*שק גד)?|משטח|יח['׳]|דלי)\s+(-?\d+(?:\.\d+)?)\s*$/,
       );
       if (!m) return null;
 
       const [, , sku, name, unit, quantity] = m;
       const unitWeightKg =
-        catalog[sku] ??
-        (name.includes("25") ? 25 : name.includes("50") ? 50 : 0);
+        catalog[sku] ?? (name.includes("25") ? 25 : name.includes("50") ? 50 : 0);
 
       return {
         lineIndex,
@@ -101,11 +98,7 @@ export function parseComaxOrder({ text, catalog = {} }: ComaxParseOptions): Coma
     .reduce((s, i) => s + Math.max(0, i.quantity), 0);
 
   const cementSacks = items
-    .filter(
-      (i) =>
-        !i.isDeposit &&
-        (i.sku === "10002" || /מלט|דבק|טיח/i.test(i.name))
-    )
+    .filter((i) => !i.isDeposit && (i.sku === "10002" || /מלט|דבק|טיח/i.test(i.name)))
     .reduce((s, i) => s + Math.max(0, i.quantity), 0);
 
   const blocks = items
@@ -113,9 +106,7 @@ export function parseComaxOrder({ text, catalog = {} }: ComaxParseOptions): Coma
     .reduce((s, i) => s + Math.max(0, i.quantity), 0);
 
   const found = (skus: string[]) =>
-    items
-      .filter((i) => skus.includes(i.sku))
-      .reduce((s, i) => s + Math.max(0, i.quantity), 0);
+    items.filter((i) => skus.includes(i.sku)).reduce((s, i) => s + Math.max(0, i.quantity), 0);
 
   const deposits = {
     bigBagsRequired,
@@ -129,22 +120,21 @@ export function parseComaxOrder({ text, catalog = {} }: ComaxParseOptions): Coma
   const warnings: string[] = [];
   if (deposits.bigBagsRequired !== deposits.bigBagsFound)
     warnings.push(
-      `פקדון בלה 60002: נדרש ${deposits.bigBagsRequired}, נמצא ${deposits.bigBagsFound}`
+      `פקדון בלה 60002: נדרש ${deposits.bigBagsRequired}, נמצא ${deposits.bigBagsFound}`,
     );
   if (deposits.palletsRequired !== deposits.palletsFound)
     warnings.push(
-      `פקדון משטחים 60060: נדרש ${deposits.palletsRequired}, נמצא ${deposits.palletsFound}`
+      `פקדון משטחים 60060: נדרש ${deposits.palletsRequired}, נמצא ${deposits.palletsFound}`,
     );
   if (deposits.blocksPalletsRequired !== deposits.blocksPalletsFound)
     warnings.push(
-      `פקדון משטחי בלוקים 60006: נדרש ${deposits.blocksPalletsRequired}, נמצא ${deposits.blocksPalletsFound}`
+      `פקדון משטחי בלוקים 60006: נדרש ${deposits.blocksPalletsRequired}, נמצא ${deposits.blocksPalletsFound}`,
     );
 
   const result = {
     orderNumber,
     orderDateTime:
-      field(text, ["תאריך", "שעה"]) ||
-      new Date().toISOString().slice(0, 16).replace("T", " "),
+      field(text, ["תאריך", "שעה"]) || new Date().toISOString().slice(0, 16).replace("T", " "),
     copyNumber: text.match(/העתק\s*\d+/)?.[0],
     companyVatId: text.match(/512001678/)?.[0] ?? "",
     customerName: customerMatch?.[1]?.trim() ?? field(text, ["לקוח"]),
@@ -164,7 +154,7 @@ export function parseComaxOrder({ text, catalog = {} }: ComaxParseOptions): Coma
 }
 
 export function reconcileDeposits(
-  items: Array<Pick<z.infer<typeof ItemSchema>, "sku" | "name" | "quantity">>
+  items: Array<Pick<z.infer<typeof ItemSchema>, "sku" | "name" | "quantity">>,
 ) {
   return parseComaxOrder({
     text: items.map((i, n) => `${n + 1} ${i.sku} ${i.name} יח' ${i.quantity}`).join("\n"),

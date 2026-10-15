@@ -3,11 +3,16 @@ import { createServerFn } from "@tanstack/react-start";
 type Msg = { role: "user" | "assistant"; content: string };
 
 async function callGateway(instructions: string, input: Msg[]): Promise<string> {
-  const key = process.env['LOVABLE_API_KEY'];
+  const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI לא מוגדר");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key, Authorization: `Bearer ${key}`, "X-Lovable-AIG-SDK": "fetch" },
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": key,
+      Authorization: `Bearer ${key}`,
+      "X-Lovable-AIG-SDK": "fetch",
+    },
     body: JSON.stringify({
       model: "openai/gpt-6-astra",
       instructions,
@@ -25,7 +30,8 @@ async function callGateway(instructions: string, input: Msg[]): Promise<string> 
   }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  let buf = "", out = "";
+  let buf = "",
+    out = "";
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -39,7 +45,9 @@ async function callGateway(instructions: string, input: Msg[]): Promise<string> 
       try {
         const ev = JSON.parse(d);
         if (ev.type === "response.output_text.delta") out += ev.delta;
-      } catch { /* partial */ }
+      } catch {
+        /* partial */
+      }
     }
   }
   return out.trim();
@@ -48,7 +56,12 @@ async function callGateway(instructions: string, input: Msg[]): Promise<string> 
 export const askNoa = createServerFn({ method: "POST" })
   .inputValidator((d: { messages: Msg[]; context: string }) => {
     if (!Array.isArray(d.messages) || d.messages.length > 40) throw new Error("bad input");
-    return { messages: d.messages.slice(-20).map((m) => ({ role: m.role, content: String(m.content).slice(0, 4000) })), context: String(d.context).slice(0, 12000) };
+    return {
+      messages: d.messages
+        .slice(-20)
+        .map((m) => ({ role: m.role, content: String(m.content).slice(0, 4000) })),
+      context: String(d.context).slice(0, 12000),
+    };
   })
   .handler(async ({ data }) => {
     const instructions = `את נועה ❤️, סדרנית ויד ימינו של ראמי מסארווה בח. סבן חומרי בניין (1994) בע״מ.
@@ -60,7 +73,10 @@ ${data.context}`;
   });
 
 export const polishNote = createServerFn({ method: "POST" })
-  .inputValidator((d: { text: string; who: string }) => ({ text: String(d.text).slice(0, 2000), who: String(d.who).slice(0, 40) }))
+  .inputValidator((d: { text: string; who: string }) => ({
+    text: String(d.text).slice(0, 2000),
+    who: String(d.who).slice(0, 40),
+  }))
   .handler(async ({ data }) => {
     const instructions = `נסח מחדש את ההערה הבאה של ${data.who} בעברית משפטית-חשבונאית מלוטשת, תמציתית (עד 2 משפטים), לצורך רישום על תעודת משלוח לפני חתימה. החזר רק את הנוסח.`;
     return { text: await callGateway(instructions, [{ role: "user", content: data.text }]) };
