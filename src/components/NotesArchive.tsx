@@ -29,7 +29,11 @@ export function NotesArchive() {
   const [q, setQ] = useState("");
   const apState = useApprovals();
 
-  const { data: notes = NOTES, isFetching, refetch } = useQuery<DeliveryNote[]>({
+  const {
+    data: notes = NOTES,
+    isFetching,
+    refetch,
+  } = useQuery<DeliveryNote[]>({
     queryKey: ["delivery-notes"],
     queryFn: fetchNotes,
     initialData: NOTES,
@@ -57,7 +61,7 @@ export function NotesArchive() {
     approvals.harel(noteId);
     playUrgentSignatureAlarm();
     toast.success(
-      `ת.מ. ${noteId} אושרה סופית לחיוב ע״י הראל אידלסון 👑 הודעות וואטסאפ שוגרו ללינה ולוורד!`
+      `ת.מ. ${noteId} אושרה סופית לחיוב ע״י הראל אידלסון 👑 הודעות וואטסאפ שוגרו ללינה ולוורד!`,
     );
   };
 
@@ -65,7 +69,7 @@ export function NotesArchive() {
     [n.customer, n.id, n.comaxOrder, n.yard, n.date, n.customerNo]
       .join(" ")
       .toLowerCase()
-      .includes(q.trim().toLowerCase())
+      .includes(q.trim().toLowerCase()),
   );
 
   return (

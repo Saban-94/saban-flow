@@ -14,6 +14,8 @@ import { AppShell } from "@/components/AppShell";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { enableAudioOnFirstTouch, setupOneSignalPushListener } from "../lib/audio-alerts";
+import { flushPendingApprovals } from "../lib/api";
 
 function NotFoundComponent() {
   return (
@@ -108,9 +110,6 @@ function RootShell({ children }: { children: ReactNode }) {
     </html>
   );
 }
-
-import { enableAudioOnFirstTouch, setupOneSignalPushListener } from "../lib/audio-alerts";
-import { flushPendingApprovals } from "../lib/api";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();

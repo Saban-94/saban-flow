@@ -53,7 +53,9 @@ function setToStorage<T>(key: string, val: T): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(key, JSON.stringify(val));
-  } catch {}
+  } catch (err) {
+    console.warn("[Storage] Failed to save key:", key, err);
+  }
 }
 
 /**
@@ -73,17 +75,30 @@ function parseItemsSummary(raw: unknown): DeliveryItem[] {
   if (Array.isArray(raw)) return raw as DeliveryItem[];
   const str = String(raw || "").trim();
   if (!str) {
-    return [{ name: "חומרי בניין (כללי)", qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: "משלוח" }];
+    return [
+      { name: "חומרי בניין (כללי)", qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: "משלוח" },
+    ];
   }
 
-  const parts = str.split(/[+\n,]/).map((p) => p.trim()).filter(Boolean);
+  const parts = str
+    .split(/[+\n,]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
   const parsed = parts.map((part) => {
     const qtyMatch = part.match(/^(\d+(?:\.\d+)?)/);
     const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 1;
     const name = part.replace(/^(\d+(?:\.\d+)?)\s*/, "").trim() || part;
-    const isBale = name.includes("בלה") || name.includes("חול") || name.includes("סומסום") || name.includes("חמרה");
+    const isBale =
+      name.includes("בלה") ||
+      name.includes("חול") ||
+      name.includes("סומסום") ||
+      name.includes("חמרה");
     const isPallet = name.includes("משטח") || name.includes("פלטה") || name.includes("בלוק");
-    const isCement = name.includes("מלט") || name.includes("טיח") || name.includes("ריצופית") || name.includes("דבק");
+    const isCement =
+      name.includes("מלט") ||
+      name.includes("טיח") ||
+      name.includes("ריצופית") ||
+      name.includes("דבק");
 
     return {
       name,
@@ -96,96 +111,61 @@ function parseItemsSummary(raw: unknown): DeliveryItem[] {
     };
   });
 
-  return parsed.length > 0 ? parsed : [{ name: str, qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: "יח׳" }];
+  return parsed.length > 0
+    ? parsed
+    : [{ name: str, qty: 1, ordered: 1, price: 350, weightKg: 1000, unit: "יח׳" }];
 }
 
 /**
  * נרמול שורה גולמית מ-Google Sheets (עמודות בעברית) למבנה DeliveryNote מלא
  */
-export function normalizeDeliveryNote(r: Record<string, any>): DeliveryNote {
-  const id = String(
-    r["מספר ת.מ"] ||
-    r["מספר תעודה"] ||
-    r.noteId ||
-    r.id ||
-    "6714850"
-  ).trim();
+export function normalizeDeliveryNote(r: Record<string, unknown>): DeliveryNote {
+  const id = String(r["מספר ת.מ"] || r["מספר תעודה"] || r.noteId || r.id || "6714850").trim();
 
-  const comaxOrder = String(
-    r["בגין הזמנה"] ||
-    r.orderId ||
-    r.comaxOrder ||
-    ""
-  ).trim();
+  const comaxOrder = String(r["בגין הזמנה"] || r.orderId || r.comaxOrder || "").trim();
 
-  const customer = String(
-    r["שם לקוח"] ||
-    r.customerName ||
-    r.customer ||
-    "לקוח ח. סבן"
-  ).trim();
+  const customer = String(r["שם לקוח"] || r.customerName || r.customer || "לקוח ח. סבן").trim();
 
-  const customerNo = String(
-    r["מספר לקוח"] ||
-    r.customerNo ||
-    ""
-  ).trim();
+  const customerNo = String(r["מספר לקוח"] || r.customerNo || "").trim();
 
-  const date = String(
-    r["תאריך אספקה"] ||
-    r.deliveryDate ||
-    r.date ||
-    "13/10/2026"
-  ).trim();
+  const date = String(r["תאריך אספקה"] || r.deliveryDate || r.date || "13/10/2026").trim();
 
   const siteAddress = String(
-    r["כתובת אתר"] ||
-    r["כתובת יעד"] ||
-    r.siteAddress ||
-    r.address ||
-    ""
+    r["כתובת אתר"] || r["כתובת יעד"] || r.siteAddress || r.address || "",
   ).trim();
 
   const yardRaw = String(r["מחסן מוצא"] || r.yard || "מחסן 4 החרש 10").trim();
-  const yard: Yard = yardRaw.includes("התלמיד") || yardRaw.includes("1") ? "מחסן 1 התלמיד 6" : "מחסן 4 החרש 10";
+  const yard: Yard =
+    yardRaw.includes("התלמיד") || yardRaw.includes("1") ? "מחסן 1 התלמיד 6" : "מחסן 4 החרש 10";
 
   const driver = String(
-    r["נהג ורכב"] ||
-    r["נהג משוייך"] ||
-    r.driver ||
-    "חכמת (מרצדס 615-41-002)"
+    r["נהג ורכב"] || r["נהג משוייך"] || r.driver || "חכמת (מרצדס 615-41-002)",
   ).trim();
 
   const rawItems = r["פירוט מוצרים ומק״טים"] || r["סחורה מפורטת"] || r.itemsSummary || r.items;
   const items = parseItemsSummary(rawItems);
 
   // פיענוח פקדונות בלות ומשטחים
-  const rawBales = r["בלות פקדון (60002)"] ?? r.bales60002 ?? r.deposits?.bales60002?.delivered ?? 0;
-  const rawPallets = r["משטחי סבן (60060)"] ?? r.pallets60060 ?? r.deposits?.pallets60060?.delivered ?? 0;
-  const balesQty = typeof rawBales === "number" ? rawBales : parseInt(String(rawBales).replace(/[^\d]/g, "") || "0", 10);
-  const palletsQty = typeof rawPallets === "number" ? rawPallets : parseInt(String(rawPallets).replace(/[^\d]/g, "") || "0", 10);
+  const rawBales =
+    r["בלות פקדון (60002)"] ?? r.bales60002 ?? r.deposits?.bales60002?.delivered ?? 0;
+  const rawPallets =
+    r["משטחי סבן (60060)"] ?? r.pallets60060 ?? r.deposits?.pallets60060?.delivered ?? 0;
+  const balesQty =
+    typeof rawBales === "number"
+      ? rawBales
+      : parseInt(String(rawBales).replace(/[^\d]/g, "") || "0", 10);
+  const palletsQty =
+    typeof rawPallets === "number"
+      ? rawPallets
+      : parseInt(String(rawPallets).replace(/[^\d]/g, "") || "0", 10);
 
   const driveUrl = String(
-    r["קישור קובץ Drive"] ||
-    r["קישור דרייב"] ||
-    r.driveUrl ||
-    r.fileUrl ||
-    ""
+    r["קישור קובץ Drive"] || r["קישור דרייב"] || r.driveUrl || r.fileUrl || "",
   ).trim();
 
-  const signedBy = String(
-    r["אימות חתימת שטח"] ||
-    r["חתימת לקוח"] ||
-    r.signedBy ||
-    ""
-  ).trim();
+  const signedBy = String(r["אימות חתימת שטח"] || r["חתימת לקוח"] || r.signedBy || "").trim();
 
-  const craneTime = String(
-    r["זמני מנוף/פריקה"] ||
-    r["זמן פריקה/מנוף"] ||
-    r.craneTime ||
-    ""
-  ).trim();
+  const craneTime = String(r["זמני מנוף/פריקה"] || r["זמן פריקה/מנוף"] || r.craneTime || "").trim();
 
   // יצירת קישור תמונה ישיר מ-Google Drive אם קיים קישור קובץ
   const fileId = extractDriveFileId(driveUrl);
@@ -234,10 +214,21 @@ export async function fetchNotes(): Promise<DeliveryNote[]> {
 
     if (res.ok) {
       const data = await res.json();
-      let rawList: any[] | null = null;
-      if (Array.isArray(data)) rawList = data;
-      else if (data && typeof data === "object" && Array.isArray(data.data)) rawList = data.data;
-      else if (data && typeof data === "object" && Array.isArray(data.notes)) rawList = data.notes;
+      let rawList: Record<string, unknown>[] | null = null;
+      if (Array.isArray(data)) rawList = data as Record<string, unknown>[];
+      else if (
+        data &&
+        typeof data === "object" &&
+        Array.isArray((data as Record<string, unknown>).data)
+      ) {
+        rawList = (data as Record<string, unknown>).data as Record<string, unknown>[];
+      } else if (
+        data &&
+        typeof data === "object" &&
+        Array.isArray((data as Record<string, unknown>).notes)
+      ) {
+        rawList = (data as Record<string, unknown>).notes as Record<string, unknown>[];
+      }
 
       if (rawList && rawList.length > 0) {
         const cleanNotes = rawList.map(normalizeDeliveryNote);
@@ -270,12 +261,18 @@ export async function fetchOrders(): Promise<Order[]> {
 
     if (res.ok) {
       const data = await res.json();
-      let rawList: any[] | null = null;
-      if (Array.isArray(data)) rawList = data;
-      else if (data && typeof data === "object" && Array.isArray(data.data)) rawList = data.data;
+      let rawList: Record<string, unknown>[] | null = null;
+      if (Array.isArray(data)) rawList = data as Record<string, unknown>[];
+      else if (
+        data &&
+        typeof data === "object" &&
+        Array.isArray((data as Record<string, unknown>).data)
+      ) {
+        rawList = (data as Record<string, unknown>).data as Record<string, unknown>[];
+      }
 
       if (rawList && rawList.length > 0) {
-        const cleanOrders: Order[] = rawList.map((r: any, idx: number) => {
+        const cleanOrders: Order[] = rawList.map((r: Record<string, unknown>, idx: number) => {
           const id = String(r["מספר הזמנה"] || r.orderId || r.id || `621556${idx}`).trim();
           const customer = String(r["שם לקוח"] || r.customer || "לקוח סבן").trim();
           const phone = String(r["איש קשר וטלפון"] || r.phone || "050-6662300").trim();
@@ -283,12 +280,18 @@ export async function fetchOrders(): Promise<Order[]> {
           const date = "15/10/2026";
           const window = String(r["סבב ושעה"] || r.window || "08:00–11:00").trim();
           const yardRaw = String(r["מחסן מוצא"] || r.yard || "מחסן 4 החרש 10").trim();
-          const yard: Yard = yardRaw.includes("התלמיד") || yardRaw.includes("1") ? "מחסן 1 התלמיד 6" : "מחסן 4 החרש 10";
+          const yard: Yard =
+            yardRaw.includes("התלמיד") || yardRaw.includes("1")
+              ? "מחסן 1 התלמיד 6"
+              : "מחסן 4 החרש 10";
           const driverRaw = String(r["נהג משוייך"] || r.driver || "חכמת").trim();
           const driverId = driverRaw.includes("עלי") ? "ali" : "hikmat";
           const statusRaw = String(r["סטטוס ביצוע"] || r.status || "פתוחה").trim();
-          const status: "פתוחה" | "בהעמסה" | "בדרך" =
-            statusRaw.includes("בהעמסה") ? "בהעמסה" : statusRaw.includes("בדרך") ? "בדרך" : "פתוחה";
+          const status: "פתוחה" | "בהעמסה" | "בדרך" = statusRaw.includes("בהעמסה")
+            ? "בהעמסה"
+            : statusRaw.includes("בדרך")
+              ? "בדרך"
+              : "פתוחה";
           const rawItems = r["פירוט מוצרים ומק״טים"] || r.items;
           const items = parseItemsSummary(rawItems);
 
@@ -322,11 +325,12 @@ export const fetchLiveOrders = fetchOrders;
  * שליפת נתוני איתוראן מתוך הגיליון ("🛰️_הצלבת_איתוראן_GPS")
  */
 export async function fetchGps(): Promise<GpsStop[]> {
-  const normalizeStops = (list: any[]): GpsStop[] => {
+  const normalizeStops = (list: unknown[]): GpsStop[] => {
     if (!Array.isArray(list)) return DEFAULT_GPS_STOPS;
     const mapped = list
-      .map((r) => {
-        if (!r || typeof r !== "object") return null;
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const r = item as Record<string, unknown>;
         const plate = String(r.plate || r["מספר רישוי"] || r["רכב"] || "").trim();
         const address = String(r.address || r["כתובת לקוח מאותרת"] || r["כתובת"] || "").trim();
         const rawArrive = String(r.arrive || r["שעת כניסה לגדר"] || r["שעת כניסה"] || "08:00");
@@ -340,7 +344,7 @@ export async function fetchGps(): Promise<GpsStop[]> {
     return mapped.length > 0 ? mapped : DEFAULT_GPS_STOPS;
   };
 
-  const rawCached = getFromStorage<any[]>(CACHE_KEY_GPS, DEFAULT_GPS_STOPS);
+  const rawCached = getFromStorage<unknown[]>(CACHE_KEY_GPS, DEFAULT_GPS_STOPS);
   const cached = normalizeStops(rawCached);
 
   try {
@@ -391,7 +395,9 @@ export async function fetchCustomers(): Promise<CustomerProfile[]> {
         return list;
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn("[API] fetchCustomers error:", err);
+  }
   return cached;
 }
 
@@ -417,7 +423,9 @@ export async function fetchDashboard(): Promise<DashboardSummary> {
         return { ...fallback, ...data, lastSyncAt: new Date().toLocaleTimeString("he-IL") };
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn("[API] fetchDashboard error:", err);
+  }
   return fallback;
 }
 
@@ -427,7 +435,7 @@ export async function fetchDashboard(): Promise<DashboardSummary> {
 export async function submitApproval(
   noteId: string,
   approver: "rami" | "harel",
-  note?: string
+  note?: string,
 ): Promise<{ success: boolean; offlineQueued?: boolean }> {
   const payload: ApprovalPayload = {
     action: "submitApproval",

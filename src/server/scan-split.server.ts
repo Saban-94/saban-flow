@@ -163,7 +163,11 @@ async function callOnce(
       },
     );
     if (!res.ok) {
-      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 400) };
+      return {
+        ok: false,
+        status: res.status,
+        detail: (await res.text().catch(() => "")).slice(0, 400),
+      };
     }
     const data = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -288,10 +292,10 @@ function buildPrompt(totalPages: number): string {
     "חוקים:",
     "- deliveryDate בפורמט DD/MM/YYYY.",
     "- bales60002 = מספר בלות פקדון (פריט 60002). pallets60060 = מספר משטחי עץ (פריט 60060). אם לא מופיע: 0.",
-    "- yard: \"4 (החרש)\" או \"1 (התלמיד)\" לפי המחסן בתעודה.",
-    "- craneTime: משך הנפת מנוף כפי שכתוב, למשל \"26 דק׳ מנוף\". אם אין: \"\".",
-    "- signedBy: שם החותם בתעודה. אם אין חתימה: \"\".",
-    "- אל תמציא נתונים. שדה שלא קריא או לא קיים: \"\" או 0.",
+    '- yard: "4 (החרש)" או "1 (התלמיד)" לפי המחסן בתעודה.',
+    '- craneTime: משך הנפת מנוף כפי שכתוב, למשל "26 דק׳ מנוף". אם אין: "".',
+    '- signedBy: שם החותם בתעודה. אם אין חתימה: "".',
+    '- אל תמציא נתונים. שדה שלא קריא או לא קיים: "" או 0.',
   ].join("\n");
 }
 

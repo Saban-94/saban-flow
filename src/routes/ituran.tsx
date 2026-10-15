@@ -2,19 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader, StatusPill } from "@/components/AppShell";
-import {
-  NOTES,
-  DRIVERS,
-  fetchNotes,
-  fetchGps,
-  type DeliveryNote,
-} from "@/lib/data";
-import {
-  crossMatch,
-  rowsToStops,
-  SAMPLE_STOPS,
-  type GpsStop,
-} from "@/lib/ituran";
+import { NOTES, DRIVERS, fetchNotes, fetchGps, type DeliveryNote } from "@/lib/data";
+import { crossMatch, rowsToStops, SAMPLE_STOPS, type GpsStop } from "@/lib/ituran";
 import {
   Satellite,
   Truck,
@@ -35,7 +24,8 @@ export const Route = createFileRoute("/ituran")({
       { title: "איתוראן GPS — נועה ח. סבן" },
       {
         name: "description",
-        content: "מנוע הצלבת טלמטריה איתוראן GPS מול תעודות משלוח, בדיקת זמני שהייה וגדרות גיאוגרפיות.",
+        content:
+          "מנוע הצלבת טלמטריה איתוראן GPS מול תעודות משלוח, בדיקת זמני שהייה וגדרות גיאוגרפיות.",
       },
       { property: "og:title", content: "איתוראן GPS — ח. סבן" },
       { property: "og:description", content: "בקרת ציי רכב וטלמטריה." },
@@ -48,13 +38,21 @@ function IturanGpsPage() {
   const [activeDriver, setActiveDriver] = useState<string>("all");
   const [customStops, setCustomStops] = useState<GpsStop[] | null>(null);
 
-  const { data: notes = NOTES, isFetching: isNotesFetching, refetch: refetchNotes } = useQuery<DeliveryNote[]>({
+  const {
+    data: notes = NOTES,
+    isFetching: isNotesFetching,
+    refetch: refetchNotes,
+  } = useQuery<DeliveryNote[]>({
     queryKey: ["delivery-notes"],
     queryFn: fetchNotes,
     initialData: NOTES,
   });
 
-  const { data: gpsStops = SAMPLE_STOPS, isFetching: isGpsFetching, refetch: refetchGps } = useQuery<GpsStop[]>({
+  const {
+    data: gpsStops = SAMPLE_STOPS,
+    isFetching: isGpsFetching,
+    refetch: refetchGps,
+  } = useQuery<GpsStop[]>({
     queryKey: ["gps-stops"],
     queryFn: fetchGps,
     initialData: SAMPLE_STOPS,
@@ -109,7 +107,12 @@ function IturanGpsPage() {
             <label className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted transition">
               <Upload className="h-3.5 w-3.5 text-primary" />
               <span>העלה קובץ איתוראן (.xlsx)</span>
-              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
             </label>
 
             <button
@@ -117,7 +120,9 @@ function IturanGpsPage() {
               disabled={isNotesFetching || isGpsFetching}
               className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted transition"
             >
-              <RefreshCw className={`h-3.5 w-3.5 text-primary ${isNotesFetching || isGpsFetching ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 text-primary ${isNotesFetching || isGpsFetching ? "animate-spin" : ""}`}
+              />
               <span>סנכרן ענן</span>
             </button>
           </div>
@@ -152,7 +157,9 @@ function IturanGpsPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-muted-foreground">{d.truck}</span>
-                <span className="font-mono text-xs font-bold bg-muted px-2 py-0.5 rounded-md">{d.plate}</span>
+                <span className="font-mono text-xs font-bold bg-muted px-2 py-0.5 rounded-md">
+                  {d.plate}
+                </span>
               </div>
               <div className="font-display text-xl font-bold mt-1">{d.name}</div>
               <div className="text-[11px] text-muted-foreground">
@@ -176,7 +183,7 @@ function IturanGpsPage() {
                 { site: n.site, signedAt: n.signedAt },
                 driver.kind,
                 driver.plate,
-                activeStops
+                activeStops,
               );
 
               return (
@@ -187,13 +194,19 @@ function IturanGpsPage() {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-primary">ת.מ. #{n.id}</span>
-                        <span className="font-mono text-xs text-muted-foreground">קומקס #{n.comaxOrder}</span>
+                        <span className="font-mono text-xs font-bold text-primary">
+                          ת.מ. #{n.id}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          קומקס #{n.comaxOrder}
+                        </span>
                         <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                           {n.yard}
                         </span>
                       </div>
-                      <h3 className="font-display text-lg font-bold text-foreground mt-1">{n.customer}</h3>
+                      <h3 className="font-display text-lg font-bold text-foreground mt-1">
+                        {n.customer}
+                      </h3>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
                         <span>{n.site}</span>
@@ -223,14 +236,18 @@ function IturanGpsPage() {
                     </div>
 
                     <div>
-                      <span className="text-[11px] text-muted-foreground block">זמני עמידה באיתוראן:</span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        זמני עמידה באיתוראן:
+                      </span>
                       <span className="font-semibold text-foreground">
                         כניסה: {n.gps.arrive || "—"} | יציאה: {n.gps.depart || "—"}
                       </span>
                     </div>
 
                     <div>
-                      <span className="text-[11px] text-muted-foreground block">שעת חתימת לקוח:</span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        שעת חתימת לקוח:
+                      </span>
                       <span className="font-semibold text-foreground">
                         {n.signedAt || "—"} · שהייה: {n.gps.note.split("—")[0]?.trim()}
                       </span>
@@ -238,8 +255,12 @@ function IturanGpsPage() {
                   </div>
 
                   <div className="text-xs text-muted-foreground flex items-center justify-between pt-1">
-                    <span>הערת בקרת נועה: <strong>{n.gps.note}</strong></span>
-                    <span className="text-[11px] text-primary font-semibold">אימות גיאופנס מול GPS</span>
+                    <span>
+                      הערת בקרת נועה: <strong>{n.gps.note}</strong>
+                    </span>
+                    <span className="text-[11px] text-primary font-semibold">
+                      אימות גיאופנס מול GPS
+                    </span>
                   </div>
                 </div>
               );

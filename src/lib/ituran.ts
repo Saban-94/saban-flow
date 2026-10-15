@@ -12,7 +12,7 @@ export const DWELL_RULES = { crane: [25, 45], flatbed: [15, 25] } as const;
 
 /** Cross-match one delivery note against GPS stops (tolerant to undefined or Hebrew keys). */
 export function crossMatch(
-  note: Pick<DeliveryNote, "site" | "signedAt"> & Record<string, any>,
+  note: Pick<DeliveryNote, "site" | "signedAt"> & Record<string, unknown>,
   kind: "crane" | "flatbed",
   plate: string,
   stops: GpsStop[],
@@ -26,22 +26,45 @@ export function crossMatch(
 
   const targetPlate = String(plate || "").replace(/\D/g, "");
 
-  const stop = (Array.isArray(stops) ? stops : []).find((s: any) => {
-    const sPlate = String(s?.plate || s?.["מספר רישוי"] || "").replace(/\D/g, "");
-    const sAddr = String(s?.address || s?.["כתובת לקוח מאותרת"] || s?.["כתובת"] || "");
+  const stop = (Array.isArray(stops) ? stops : []).find((s: GpsStop | Record<string, unknown>) => {
+    const sPlate = String(
+      ("plate" in s ? s.plate : "") || (s as Record<string, unknown>)?.["מספר רישוי"] || "",
+    ).replace(/\D/g, "");
+    const sAddr = String(
+      ("address" in s ? s.address : "") ||
+        (s as Record<string, unknown>)?.["כתובת לקוח מאותרת"] ||
+        (s as Record<string, unknown>)?.["כתובת"] ||
+        "",
+    );
     if (!sPlate || !targetPlate) return false;
     return sPlate === targetPlate && (!street || sAddr.includes(street));
   });
 
   if (!stop) return { status: "fail", dwell: null, label: "🔴 רכב לא שהה בכתובת" };
 
-  const arriveStr = String(stop.arrive || (stop as any)?.["שעת כניסה לגדר"] || "08:00");
-  const departStr = String(stop.depart || (stop as any)?.["שעת יציאה מגדר"] || "08:30");
+  const arriveStr = String(
+    ("arrive" in stop ? stop.arrive : "") ||
+      (stop as Record<string, unknown>)?.["שעת כניסה לגדר"] ||
+      "08:00",
+  );
+  const departStr = String(
+    ("depart" in stop ? stop.depart : "") ||
+      (stop as Record<string, unknown>)?.["שעת יציאה מגדר"] ||
+      "08:30",
+  );
   const signedStr = String(note?.signedAt || "08:15");
 
   const normalizedStop: GpsStop = {
-    plate: String(stop.plate || (stop as any)?.["מספר רישוי"] || plate),
-    address: String(stop.address || (stop as any)?.["כתובת לקוח מאותרת"] || siteStr),
+    plate: String(
+      ("plate" in stop ? stop.plate : "") ||
+        (stop as Record<string, unknown>)?.["מספר רישוי"] ||
+        plate,
+    ),
+    address: String(
+      ("address" in stop ? stop.address : "") ||
+        (stop as Record<string, unknown>)?.["כתובת לקוח מאותרת"] ||
+        siteStr,
+    ),
     arrive: arriveStr,
     depart: departStr,
   };

@@ -80,11 +80,40 @@ export const BASE: DeliveryNote[] = [
     yard: "מחסן 4 החרש 10",
     driver: "חכמת 615-41-002",
     items: [
-      { name: "ריצופית אפור 181 25 ק״ג כרמית", qty: 240, ordered: 240, price: 28, weightKg: 25, unit: "שק" },
-      { name: "פורצלן 60/60 אפור 1.44 מ״ר", qty: 175, ordered: 175, price: 42, weightKg: 28, unit: "מ״ר" },
+      {
+        name: "ריצופית אפור 181 25 ק״ג כרמית",
+        qty: 240,
+        ordered: 240,
+        price: 28,
+        weightKg: 25,
+        unit: "שק",
+      },
+      {
+        name: "פורצלן 60/60 אפור 1.44 מ״ר",
+        qty: 175,
+        ordered: 175,
+        price: 42,
+        weightKg: 28,
+        unit: "מ״ר",
+      },
       { name: "סרם 255 SIKA 25 ק״ג", qty: 20, ordered: 20, price: 85, weightKg: 25, unit: "שק" },
-      { name: "הובלת מנוף תל אביב מרכז", qty: 1, ordered: 1, price: 650, weightKg: 0, unit: "משלוח" },
-      { name: "משטח סבן פקדון (60060)", qty: 1, ordered: 1, price: 60, weightKg: 25, unit: "משטח", deposit: 60 },
+      {
+        name: "הובלת מנוף תל אביב מרכז",
+        qty: 1,
+        ordered: 1,
+        price: 650,
+        weightKg: 0,
+        unit: "משלוח",
+      },
+      {
+        name: "משטח סבן פקדון (60060)",
+        qty: 1,
+        ordered: 1,
+        price: 60,
+        weightKg: 25,
+        unit: "משטח",
+        deposit: 60,
+      },
     ],
     deposits: {
       bales60002: { delivered: 0, billed: 0 },
@@ -110,7 +139,15 @@ export const BASE: DeliveryNote[] = [
     yard: "מחסן 4 החרש 10",
     driver: "חכמת (מרצדס 615-41-002)",
     items: [
-      { name: "חול מחצבה (בלה)", qty: 3, ordered: 3, price: 180, weightKg: 1000, unit: "בלה", deposit: 45 },
+      {
+        name: "חול מחצבה (בלה)",
+        qty: 3,
+        ordered: 3,
+        price: 180,
+        weightKg: 1000,
+        unit: "בלה",
+        deposit: 45,
+      },
       { name: "לוחות דנסגלאס 12.5", qty: 25, ordered: 25, price: 95, weightKg: 30, unit: "לוח" },
       { name: "פרופיל 70 סבן", qty: 60, ordered: 60, price: 18, weightKg: 1.5, unit: "יח׳" },
     ],
@@ -135,8 +172,24 @@ export const BASE: DeliveryNote[] = [
     yard: "מחסן 4 החרש 10",
     driver: "חכמת (מרצדס 615-41-002)",
     items: [
-      { name: "חול מחצבה (בלה)", qty: 2, ordered: 2, price: 180, weightKg: 1000, unit: "בלה", deposit: 45 },
-      { name: "סומסום שק גדול (בלה)", qty: 2, ordered: 2, price: 190, weightKg: 1000, unit: "בלה", deposit: 45 },
+      {
+        name: "חול מחצבה (בלה)",
+        qty: 2,
+        ordered: 2,
+        price: 180,
+        weightKg: 1000,
+        unit: "בלה",
+        deposit: 45,
+      },
+      {
+        name: "סומסום שק גדול (בלה)",
+        qty: 2,
+        ordered: 2,
+        price: 190,
+        weightKg: 1000,
+        unit: "בלה",
+        deposit: 45,
+      },
       { name: "מלט 50 ק״ג נשר", qty: 8, ordered: 8, price: 32, weightKg: 50, unit: "שק" },
     ],
     deposits: {
@@ -160,8 +213,24 @@ export const BASE: DeliveryNote[] = [
     yard: "מחסן 4 החרש 10",
     driver: "חכמת (מרצדס 615-41-002)",
     items: [
-      { name: "חול מחצבה (בלה)", qty: 4, ordered: 4, price: 180, weightKg: 1000, unit: "בלה", deposit: 45 },
-      { name: "סומסום נקי (בלה)", qty: 4, ordered: 4, price: 190, weightKg: 1000, unit: "בלה", deposit: 45 },
+      {
+        name: "חול מחצבה (בלה)",
+        qty: 4,
+        ordered: 4,
+        price: 180,
+        weightKg: 1000,
+        unit: "בלה",
+        deposit: 45,
+      },
+      {
+        name: "סומסום נקי (בלה)",
+        qty: 4,
+        ordered: 4,
+        price: 190,
+        weightKg: 1000,
+        unit: "בלה",
+        deposit: 45,
+      },
     ],
     deposits: {
       bales60002: { delivered: 8, billed: 8 },
@@ -179,16 +248,36 @@ export const BASE: DeliveryNote[] = [
 export const NOTES = BASE;
 
 export const GPS_RECORDS: GpsRecord[] = [
-  { id: "gps-1", driverId: "hikmat", lat: 32.15, lng: 34.88, speed: 45, status: "בנסיעה", updatedAt: "08:05" },
-  { id: "gps-2", driverId: "ali", lat: 32.11, lng: 34.85, speed: 0, status: "עמידה", updatedAt: "08:00" },
+  {
+    id: "gps-1",
+    driverId: "hikmat",
+    lat: 32.15,
+    lng: 34.88,
+    speed: 45,
+    status: "בנסיעה",
+    updatedAt: "08:05",
+  },
+  {
+    id: "gps-2",
+    driverId: "ali",
+    lat: 32.11,
+    lng: 34.85,
+    speed: 0,
+    status: "עמידה",
+    updatedAt: "08:00",
+  },
 ];
 
-export const noteTotal = (n?: DeliveryNote) => (n?.items || []).reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
+export const noteTotal = (n?: DeliveryNote) =>
+  (n?.items || []).reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
 export const noteWeightTons = (n?: DeliveryNote) =>
   (n?.items || []).reduce((s, i) => s + (i.qty || 0) * (i.weightKg || 0), 0) / 1000;
 export const driverOf = (id: string) => DRIVERS.find((d) => d.id === id)!;
 
-export function auditNote(n?: DeliveryNote): { status: AuditStatus; findings: { status: AuditStatus; text: string }[] } {
+export function auditNote(n?: DeliveryNote): {
+  status: AuditStatus;
+  findings: { status: AuditStatus; text: string }[];
+} {
   const findings: { status: AuditStatus; text: string }[] = [];
   if (!n) return { status: "ok", findings: [{ status: "ok", text: "תעודה בטעינה" }] };
   (n.items || []).forEach((i) => {
@@ -251,9 +340,7 @@ export const ORDERS: Order[] = [
     yard: "מחסן 4 החרש 10",
     driverId: "hikmat",
     status: "בהעמסה",
-    items: [
-      { name: "סומסום שק גדול (בלה)", qty: 4, unit: "בלה", weightKg: 1000, deposit: 45 },
-    ],
+    items: [{ name: "סומסום שק גדול (בלה)", qty: 4, unit: "בלה", weightKg: 1000, deposit: 45 }],
   },
   {
     id: "6215553",
