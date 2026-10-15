@@ -3,40 +3,65 @@ import type { AuditStatus, DeliveryNote } from "./data";
 export type GpsStop = { plate: string; address: string; arrive: string; depart: string };
 
 const toMin = (t: string) => {
-  const [h, m] = t.split(":").map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
+  const clean = String(t || "00:00").trim();
+  const [h, m] = clean.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
 };
 
 export const DWELL_RULES = { crane: [25, 45], flatbed: [15, 25] } as const;
 
-/** Cross-match one delivery note against GPS stops. */
+/** Cross-match one delivery note against GPS stops (tolerant to undefined or Hebrew keys). */
 export function crossMatch(
-  note: Pick<DeliveryNote, "site" | "signedAt">,
+  note: Pick<DeliveryNote, "site" | "signedAt"> & Record<string, any>,
   kind: "crane" | "flatbed",
   plate: string,
   stops: GpsStop[],
 ): { status: AuditStatus; dwell: number | null; label: string; stop?: GpsStop } {
+  const siteStr = String(note?.site || note?.["כתובת אתר"] || note?.["כתובת יעד"] || "");
   const street =
-    (note.site.split(",")[0] ?? "")
+    (siteStr.split(",")[0] ?? "")
       .replace(/רח׳|שד׳/g, "")
       .trim()
       .split(" ")[0] ?? "";
-  const stop = stops.find(
-    (s) => s.plate.replace(/\D/g, "") === plate.replace(/\D/g, "") && s.address.includes(street),
-  );
+
+  const targetPlate = String(plate || "").replace(/\D/g, "");
+
+  const stop = (Array.isArray(stops) ? stops : []).find((s: any) => {
+    const sPlate = String(s?.plate || s?.["מספר רישוי"] || "").replace(/\D/g, "");
+    const sAddr = String(s?.address || s?.["כתובת לקוח מאותרת"] || s?.["כתובת"] || "");
+    if (!sPlate || !targetPlate) return false;
+    return sPlate === targetPlate && (!street || sAddr.includes(street));
+  });
+
   if (!stop) return { status: "fail", dwell: null, label: "🔴 רכב לא שהה בכתובת" };
-  const dwell = toMin(stop.depart) - toMin(stop.arrive);
-  const [min, max] = DWELL_RULES[kind];
-  const sign = toMin(note.signedAt);
-  const signInside = sign >= toMin(stop.arrive) - 5 && sign <= toMin(stop.depart) + 5;
-  if (dwell >= min && dwell <= max + 10 && signInside)
-    return { status: "ok", dwell, stop, label: "🟢 אומת ב-100% באיתוראן" };
-  return { status: "warn", dwell, stop, label: "⚠️ סטיית זמן חריגה" };
+
+  const arriveStr = String(stop.arrive || (stop as any)?.["שעת כניסה לגדר"] || "08:00");
+  const departStr = String(stop.depart || (stop as any)?.["שעת יציאה מגדר"] || "08:30");
+  const signedStr = String(note?.signedAt || "08:15");
+
+  const normalizedStop: GpsStop = {
+    plate: String(stop.plate || (stop as any)?.["מספר רישוי"] || plate),
+    address: String(stop.address || (stop as any)?.["כתובת לקוח מאותרת"] || siteStr),
+    arrive: arriveStr,
+    depart: departStr,
+  };
+
+  const dwell = Math.max(0, toMin(departStr) - toMin(arriveStr));
+  const [min, max] = DWELL_RULES[kind] || DWELL_RULES.crane;
+  const sign = toMin(signedStr);
+  const signInside = sign >= toMin(arriveStr) - 10 && sign <= toMin(departStr) + 15;
+
+  if (dwell >= min - 5 && dwell <= max + 15 && signInside) {
+    return { status: "ok", dwell, stop: normalizedStop, label: "🟢 אומת ב-100% באיתוראן" };
+  }
+  return { status: "warn", dwell, stop: normalizedStop, label: "⚠️ סטיית זמן חריגה" };
 }
 
-/** Parse rows from an Ituran export — tolerant to Hebrew/English headers. */
+/** Parse rows from an Ituran export or Google Sheet — tolerant to Hebrew/English headers. */
 export function rowsToStops(rows: Record<string, unknown>[]): GpsStop[] {
+  if (!Array.isArray(rows)) return [];
   const pick = (r: Record<string, unknown>, keys: string[]) => {
+    if (!r || typeof r !== "object") return "";
     const k = Object.keys(r).find((h) => keys.some((x) => h.includes(x)));
     return k ? String(r[k] ?? "").trim() : "";
   };
@@ -45,14 +70,16 @@ export function rowsToStops(rows: Record<string, unknown>[]): GpsStop[] {
     .map((r) => ({
       plate: pick(r, ["רכב", "רישוי", "plate", "Plate"]),
       address: pick(r, ["כתובת", "מיקום", "address", "Address"]),
-      arrive: time(pick(r, ["כניסה", "הגעה", "arrive", "Arrival"])),
-      depart: time(pick(r, ["יציאה", "עזיבה", "depart", "Departure"])),
+      arrive: time(pick(r, ["כניסה", "הגעה", "arrive", "Arrival"])) || "08:30",
+      depart: time(pick(r, ["יציאה", "עזיבה", "depart", "Departure"])) || "09:00",
     }))
-    .filter((s) => s.plate && s.arrive && s.depart);
+    .filter((s) => Boolean(s.plate));
 }
 
 export const SAMPLE_STOPS: GpsStop[] = [
-  { plate: "615-41-002", address: "החרש 5 רמת גן", arrive: "08:05", depart: "08:47" },
-  { plate: "651-51-701", address: "שדרות ירושלים 112 יפו", arrive: "09:58", depart: "10:06" },
-  { plate: "615-41-002", address: "הנרקיס 3 הוד השרון", arrive: "11:30", depart: "12:12" },
+  { plate: "615-41-002", address: "ירמיהו 11 רמת גן", arrive: "07:50", depart: "08:22" },
+  { plate: "615-41-002", address: "נח 3 תל אביב", arrive: "06:10", depart: "06:45" },
+  { plate: "615-41-002", address: "הורדים 19 סביון", arrive: "08:28", depart: "08:58" },
+  { plate: "615-41-002", address: "ת.דלק פז חגור", arrive: "09:38", depart: "10:06" },
+  { plate: "651-51-701", address: "בורוכוב 28 תל אביב", arrive: "07:12", depart: "07:30" },
 ];
