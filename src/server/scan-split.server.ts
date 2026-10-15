@@ -79,6 +79,171 @@ export function buildFileName(noteId: string, customerName: string, date: string
   return `ת.מ_${noteId}_${safeName(customerName) || "ללא-לקוח"}_${datePart}.pdf`;
 }
 
+/* ---------- Gemini: key and model rotation ---------- */
+
+// GEMINI_API_KEYS = key1,key2,key3,...   (falls back to GEMINI_API_KEY)
+// GEMINI_MODELS   = model-a,model-b,...  (priority order; falls back to GEMINI_MODEL)
+const DEFAULT_MODELS = "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite";
+const TOTAL_BUDGET_MS = 50_000; // total time for all attempts in one request
+const PER_ATTEMPT_MS = 25_000;
+const MIN_ATTEMPT_MS = 3_000;
+const MAX_ATTEMPTS = 12;
+const HOUR = 3_600_000;
+const INVALID_KEY = /API_KEY_INVALID|API key not valid|API key expired/i;
+
+type Candidate = { keyIndex: number; apiKey: string; model: string };
+type CallResult = { ok: true; text: string } | { ok: false; status: number; detail: string };
+
+function splitList(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(/[,\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function loadKeys(): string[] {
+  return splitList(process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "");
+}
+
+function loadModels(): string[] {
+  return splitList(process.env.GEMINI_MODELS || process.env.GEMINI_MODEL || DEFAULT_MODELS);
+}
+
+// Cooldowns live in memory of a warm serverless instance only (best effort).
+const blocks = new Map<string, number>();
+
+function block(id: string, ms: number): void {
+  blocks.set(id, Date.now() + ms);
+}
+
+function isBlocked(c: Candidate): boolean {
+  const now = Date.now();
+  return [`k${c.keyIndex}`, `k${c.keyIndex}:${c.model}`, `m:${c.model}`].some(
+    (id) => (blocks.get(id) ?? 0) > now,
+  );
+}
+
+function applyFailure(c: Candidate, status: number, detail: string): void {
+  if (status === 402 || status === 401 || status === 403) {
+    block(`k${c.keyIndex}`, 6 * HOUR); // credits depleted / key rejected
+  } else if (status === 400 && INVALID_KEY.test(detail)) {
+    block(`k${c.keyIndex}`, 6 * HOUR);
+  } else if (status === 429) {
+    block(`k${c.keyIndex}:${c.model}`, 90_000); // rate / quota for this key+model
+  } else if (status === 404) {
+    block(`m:${c.model}`, HOUR); // model not available
+  } else if (status >= 500 || status === 0) {
+    block(`k${c.keyIndex}:${c.model}`, 30_000);
+  }
+}
+
+/** Errors that rotating keys cannot fix (bad request, payload too large). */
+function isFatal(status: number, detail: string): boolean {
+  return (status === 400 && !INVALID_KEY.test(detail)) || status === 413;
+}
+
+async function callOnce(
+  apiKey: string,
+  model: string,
+  body: unknown,
+  timeoutMs: number,
+): Promise<CallResult> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+        signal: AbortSignal.timeout(timeoutMs),
+        body: JSON.stringify(body),
+      },
+    );
+    if (!res.ok) {
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 400) };
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    return { ok: true, text: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "" };
+  } catch (err) {
+    return { ok: false, status: 0, detail: err instanceof Error ? err.name : "network error" };
+  }
+}
+
+async function generateWithRotation(body: unknown): Promise<string> {
+  const keys = loadKeys();
+  if (keys.length === 0) throw new HttpError(500, "GEMINI_API_KEYS is not configured");
+  const models = loadModels();
+
+  // Models in priority order; keys rotated from a random start to spread load.
+  const start = Math.floor(Math.random() * keys.length);
+  const all: Candidate[] = [];
+  for (const model of models) {
+    for (let n = 0; n < keys.length; n++) {
+      const keyIndex = (start + n) % keys.length;
+      all.push({ keyIndex, apiKey: keys[keyIndex], model });
+    }
+  }
+  const live = all.filter((c) => !isBlocked(c));
+  const queue = (live.length > 0 ? live : all).slice(0, MAX_ATTEMPTS);
+
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  const trail: string[] = [];
+
+  for (const c of queue) {
+    const remaining = deadline - Date.now();
+    if (remaining < MIN_ATTEMPT_MS) {
+      trail.push("time budget exhausted");
+      break;
+    }
+
+    const label = `key#${c.keyIndex + 1}/${c.model}`;
+    const r = await callOnce(c.apiKey, c.model, body, Math.min(remaining, PER_ATTEMPT_MS));
+
+    if (r.ok && r.text) return r.text;
+
+    const status = r.ok ? 204 : r.status;
+    const detail = r.ok ? "empty response" : r.detail;
+    console.warn(`Gemini ${label} -> ${status}: ${detail.slice(0, 200)}`);
+    trail.push(`${label}:${status}`);
+
+    if (isFatal(status, detail)) {
+      throw new HttpError(502, `Gemini rejected the request (${status}): ${detail}`);
+    }
+    applyFailure(c, status, detail);
+  }
+
+  throw new HttpError(502, `All Gemini keys/models failed: ${trail.join(", ")}`);
+}
+
+/** Lightweight probe of every configured key (no key values are returned). */
+export async function checkGeminiKeys(): Promise<
+  { key: string; model: string; ok: boolean; status: number; detail: string }[]
+> {
+  const keys = loadKeys();
+  const model = loadModels()[0];
+  const probe = {
+    contents: [{ role: "user", parts: [{ text: "ping" }] }],
+    generationConfig: { maxOutputTokens: 1 },
+  };
+  return Promise.all(
+    keys.map(async (apiKey, i) => {
+      const r = await callOnce(apiKey, model, probe, 15_000);
+      return {
+        key: `key#${i + 1}`,
+        model,
+        ok: r.ok,
+        status: r.ok ? 200 : r.status,
+        detail: r.ok ? "" : r.detail.slice(0, 160),
+      };
+    }),
+  );
+}
+
 /* ---------- Gemini OCR ---------- */
 
 const NOTE_PROPERTIES = {
@@ -133,46 +298,21 @@ function buildPrompt(totalPages: number): string {
 type RawNote = Record<string, unknown>;
 
 async function extractManifest(pdfBase64: string, totalPages: number): Promise<RawNote[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new HttpError(500, "GEMINI_API_KEY is not configured");
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-      signal: AbortSignal.timeout(55_000),
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
-              { text: buildPrompt(totalPages) },
-            ],
-          },
+  const text = await generateWithRotation({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
+          { text: buildPrompt(totalPages) },
         ],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      }),
+      },
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
     },
-  );
-
-  if (!res.ok) {
-    const detail = (await res.text().catch(() => "")).slice(0, 400);
-    console.error(`Gemini ${res.status} (model ${model}): ${detail}`);
-    throw new HttpError(502, `Gemini request failed with status ${res.status}: ${detail}`);
-  }
-
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new HttpError(502, "Gemini returned an empty response");
+  });
 
   try {
     const parsed = JSON.parse(text) as { notes?: RawNote[] };
