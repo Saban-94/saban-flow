@@ -4,8 +4,7 @@ import { toast } from "sonner";
 import {
   NOTES,
   auditNote,
-  noteTotal,
-  ils,
+  noteWeightTons,
   driverOf,
   fetchNotes,
   type DeliveryNote,
@@ -47,7 +46,7 @@ function Index() {
   const ready = notes.filter((n) => ap[n.id]?.rami && !ap[n.id]?.harel);
   const pendingRami = notes.filter((n) => !ap[n.id]?.rami);
   const done = notes.filter((n) => ap[n.id]?.harel);
-  const sum = ready.reduce((s, n) => s + noteTotal(n), 0);
+  const sumTons = ready.reduce((s, n) => s + noteWeightTons(n), 0);
 
   const handleApproveAll = () => {
     ready.forEach((n) => approvals.harel(n.id));
@@ -92,7 +91,7 @@ function Index() {
           </div>
           <div className="mt-2 font-display text-5xl font-extrabold">{ready.length}</div>
           <div className="mt-1 text-lg">
-            תעודות · <b>{ils(sum)}</b> לחיוב
+            תעודות · <b>{sumTons.toFixed(1)} טון</b> לאישור
           </div>
           {ready.length > 1 && (
             <button
@@ -125,7 +124,7 @@ function Index() {
               <Link to="/notes/$id" params={{ id: n.id }} className="block p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground">
-                    ת.מ. #{n.id} · {n.driver || driverOf(n.driverId)?.name || "חכמת מנוף"} · קומקס #{n.comaxOrder || n.id}
+                    ת.מ. #{n.id} · {n.driver || driverOf(n.driverId)?.name || "חכמת מנוף"} · קומקס #{n.comaxOrder}
                   </span>
                   <StatusPill s={a.status} />
                 </div>
@@ -136,9 +135,10 @@ function Index() {
                     : a.findings.find((f) => f.status !== "ok")?.text}
                 </p>
                 <div className="mt-3 flex items-end justify-between">
-                  <span className="font-display text-3xl font-extrabold text-foreground">
-                    {ils(noteTotal(n))}
-                  </span>
+                  <div className="text-left">
+                    <span className="font-display text-2xl font-extrabold text-foreground">{noteWeightTons(n).toFixed(1)} טון</span>
+                    <span className="block text-xs text-muted-foreground font-medium">({(n.items || []).length} פריטים)</span>
+                  </div>
                   <span className="flex items-center gap-1 text-sm font-bold text-primary">
                     לתעודה ומסמכים <ChevronLeft className="h-4 w-4" />
                   </span>
