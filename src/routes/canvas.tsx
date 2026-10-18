@@ -1,15 +1,15 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import DeliveryCanvasEditor from '@/components/DeliveryCanvasEditor';
-import { NOTES, type DeliveryNote } from '@/lib/data';
-import { fetchNotes, submitApproval } from '@/lib/api';
-import defaultScan from '@/assets/delivery-note.jpg';
-import noaStamp from '@/assets/noa.jpg';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { createFileRoute, Link } from "@tanstack/react-router";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import DeliveryCanvasEditor from "@/components/DeliveryCanvasEditor";
+import { NOTES, type DeliveryNote } from "@/lib/data";
+import { fetchNotes, submitApproval } from "@/lib/api";
+import defaultScan from "@/assets/delivery-note.jpg";
+import noaStamp from "@/assets/noa.jpg";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   Bot,
   Sparkles,
@@ -28,13 +28,14 @@ import {
   Folder,
   FolderCheck,
   Building,
-} from 'lucide-react';
+} from "lucide-react";
 
-export const Route = createFileRoute('/canvas')({
+export const Route = createFileRoute("/canvas")({
   component: CanvasPageRoute,
 });
 
-const CUSTOMERS_ROOT_DRIVE_URL = 'https://drive.google.com/drive/folders/1JGNbTlmB5yBH_cLOApKTvE39CEL6roFF';
+const CUSTOMERS_ROOT_DRIVE_URL =
+  "https://drive.google.com/drive/folders/1JGNbTlmB5yBH_cLOApKTvE39CEL6roFF";
 
 /**
  * מחלץ מזהה קובץ Drive מתוך קישור מלא ומחזיר כתובת Thumbnail ישירה ברזולוציה גבוהה
@@ -52,18 +53,18 @@ function getDriveThumbnailUrl(driveUrlOrId?: string): string | null {
  * פונקציית ביקורת עצמאית ומוגנת ב-100% משגיאות undefined.forEach
  */
 function auditNoteSafe(n?: DeliveryNote): {
-  status: 'ok' | 'warn' | 'fail';
-  findings: { status: 'ok' | 'warn' | 'fail'; text: string }[];
+  status: "ok" | "warn" | "fail";
+  findings: { status: "ok" | "warn" | "fail"; text: string }[];
 } {
-  const findings: { status: 'ok' | 'warn' | 'fail'; text: string }[] = [];
-  if (!n) return { status: 'ok', findings: [{ status: 'ok', text: 'תעודה בטעינה' }] };
+  const findings: { status: "ok" | "warn" | "fail"; text: string }[] = [];
+  if (!n) return { status: "ok", findings: [{ status: "ok", text: "תעודה בטעינה" }] };
 
   const items = Array.isArray(n.items) ? n.items : [];
   items.forEach((i) => {
-    if (i && typeof i.qty === 'number' && typeof i.ordered === 'number' && i.qty !== i.ordered) {
+    if (i && typeof i.qty === "number" && typeof i.ordered === "number" && i.qty !== i.ordered) {
       findings.push({
-        status: 'warn',
-        text: `${i.name || 'פריט'}: סופק ${i.qty} מול ${i.ordered} בהזמנת קומקס`,
+        status: "warn",
+        text: `${i.name || "פריט"}: סופק ${i.qty} מול ${i.ordered} בהזמנת קומקס`,
       });
     }
   });
@@ -73,42 +74,42 @@ function auditNoteSafe(n?: DeliveryNote): {
 
   if (b.delivered !== b.billed) {
     findings.push({
-      status: 'fail',
+      status: "fail",
       text: `בלות פקדון 60002: ${b.delivered} סופקו, ${b.billed} חויבו`,
     });
   } else if (b.delivered) {
-    findings.push({ status: 'ok', text: `בלות 60002 תואמות 1:1 (${b.delivered})` });
+    findings.push({ status: "ok", text: `בלות 60002 תואמות 1:1 (${b.delivered})` });
   }
 
   if (p.delivered !== p.billed) {
     findings.push({
-      status: 'fail',
+      status: "fail",
       text: `משטחי עץ 60060: ${p.delivered} סופקו, ${p.billed} חויבו`,
     });
   } else if (p.delivered) {
-    findings.push({ status: 'ok', text: `משטחי 60060 תואמים 1:1 (${p.delivered})` });
+    findings.push({ status: "ok", text: `משטחי 60060 תואמים 1:1 (${p.delivered})` });
   }
 
   if (n.gps) {
     findings.push({ status: n.gps.status, text: `איתוראן: ${n.gps.note}` });
   }
 
-  if (!findings.some((f) => f.status !== 'ok')) {
-    findings.unshift({ status: 'ok', text: 'כמויות תואמות להזמנת קומקס' });
+  if (!findings.some((f) => f.status !== "ok")) {
+    findings.unshift({ status: "ok", text: "כמויות תואמות להזמנת קומקס" });
   }
 
-  const status: 'ok' | 'warn' | 'fail' = findings.some((f) => f.status === 'fail')
-    ? 'fail'
-    : findings.some((f) => f.status === 'warn')
-      ? 'warn'
-      : 'ok';
+  const status: "ok" | "warn" | "fail" = findings.some((f) => f.status === "fail")
+    ? "fail"
+    : findings.some((f) => f.status === "warn")
+      ? "warn"
+      : "ok";
 
   return { status, findings };
 }
 
 interface ChatMessage {
   id: string;
-  sender: 'noa' | 'rami';
+  sender: "noa" | "rami";
   text: string;
   timestamp: string;
   isTyped?: boolean;
@@ -121,7 +122,7 @@ function CanvasPageRoute() {
     isLoading: isLoadingNotes,
     refetch: refetchNotes,
   } = useQuery({
-    queryKey: ['live-notes-canvas'],
+    queryKey: ["live-notes-canvas"],
     queryFn: fetchNotes,
     staleTime: 30_000,
   });
@@ -132,7 +133,7 @@ function CanvasPageRoute() {
   }, [remoteNotes]);
 
   // בחירת תעודה נוכחית מתוך הגיליון (ברירת מחדל: תעודה אמיתית 6715766)
-  const [selectedNoteId, setSelectedNoteId] = useState<string>(notesList[0]?.id || '6715766');
+  const [selectedNoteId, setSelectedNoteId] = useState<string>(notesList[0]?.id || "6715766");
 
   // עדכון הבחירה כאשר הנתונים מגיעים
   useEffect(() => {
@@ -162,8 +163,8 @@ function CanvasPageRoute() {
 
   // חישוב מסלול תיקיית הלקוח הקנונית ב-Google Drive
   const customerFolderInfo = useMemo(() => {
-    const customerNo = currentNote.customerNo || '632122';
-    const customerName = currentNote.customer || 'א.ערן אזולאי';
+    const customerNo = currentNote.customerNo || "632122";
+    const customerName = currentNote.customer || "א.ערן אזולאי";
     const folderPath = `תיקיות לקוחות / [${customerNo}] - ${customerName} / 2. תעודות משלוח`;
     return {
       customerNo,
@@ -178,12 +179,13 @@ function CanvasPageRoute() {
     return getDriveThumbnailUrl(currentNote.driveUrl);
   }, [currentNote.driveUrl]);
 
-  const scanImageSrc = driveImgUrl || currentNote.scanImage || currentNote.scans?.[0] || defaultScan;
+  const scanImageSrc =
+    driveImgUrl || currentNote.scanImage || currentNote.scans?.[0] || defaultScan;
 
   /* ----------------- צ'אט נועה AI ואפקט הקלדה בזמן אמת ----------------- */
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [userInput, setUserInput] = useState('');
-  const [typingText, setTypingText] = useState('');
+  const [userInput, setUserInput] = useState("");
+  const [typingText, setTypingText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -196,42 +198,45 @@ function CanvasPageRoute() {
     const palletsDelivered = currentNote.deposits?.pallets60060?.delivered ?? 0;
     const palletsBilled = currentNote.deposits?.pallets60060?.billed ?? 0;
 
-    const itemsSummary = currentNote.items && currentNote.items.length > 0
-      ? currentNote.items.map((i) => `${i.name || 'פריט'} (${i.qty || 1} ${i.unit || 'יח׳'})`).join(', ')
-      : 'חומרי בניין כללי';
+    const itemsSummary =
+      currentNote.items && currentNote.items.length > 0
+        ? currentNote.items
+            .map((i) => `${i.name || "פריט"} (${i.qty || 1} ${i.unit || "יח׳"})`)
+            .join(", ")
+        : "חומרי בניין כללי";
 
     const fullAnalysis = `שלום ראמי, סרקתי וניתחתי את תעודה #${currentNote.comaxOrder || currentNote.id} עבור ${currentNote.customer}:
 
 📁 סנכרון תיקיית לקוח ב-Drive:
 • תיקייה קנונית: תיקיות לקוחות / [${customerFolderInfo.customerNo}] - ${customerFolderInfo.customerName}
 • יעד תיוק אוטומטי: תת-תיקייה "2. תעודות משלוח"
-• קישור Drive פעיל: ${currentNote.driveUrl ? 'סריקת PDF מקורית מגליה מאומתת' : 'מסונכרן לתיקיית שורש'}
+• קישור Drive פעיל: ${currentNote.driveUrl ? "סריקת PDF מקורית מגליה מאומתת" : "מסונכרן לתיקיית שורש"}
 
 ✍️ סריקת כתב יד וחתימות:
-• זוהתה חתימת מקבל באתר: ${currentNote.signedBy || 'מאסרוה ראמי חתם ✅'} בשטח.
+• זוהתה חתימת מקבל באתר: ${currentNote.signedBy || "מאסרוה ראמי חתם ✅"} בשטח.
 • הצהרת קבלה: "הציוד סופק במלואו ובמצב תקין".
 
 📦 בדיקת כמויות מול הזמנת קומקס:
 • פריטים שנפרקו: ${itemsSummary}.
-• סטטוס כמויות: ${audit.status === 'ok' ? 'תואם 100% להזמנה' : 'אותרה אי-התאמה הדורשת בדיקה'}.
+• סטטוס כמויות: ${audit.status === "ok" ? "תואם 100% להזמנה" : "אותרה אי-התאמה הדורשת בדיקה"}.
 
 ⚖️ חוק הפקדונות ובקרת 1:1:
-• שקי פקדון 60002: ${balesDelivered} סופקו מול ${balesBilled} שחויבו (${balesDelivered === balesBilled ? 'מאוזן 1:1 ✅' : 'אי-התאמה בבלות ⚠️'}).
-• משטחי עץ 60060: ${palletsDelivered} סופקו מול ${palletsBilled} שחויבו (${palletsDelivered === palletsBilled ? 'מאוזן 1:1 ✅' : 'חריגה במשטחים ⚠️'}).
+• שקי פקדון 60002: ${balesDelivered} סופקו מול ${balesBilled} שחויבו (${balesDelivered === balesBilled ? "מאוזן 1:1 ✅" : "אי-התאמה בבלות ⚠️"}).
+• משטחי עץ 60060: ${palletsDelivered} סופקו מול ${palletsBilled} שחויבו (${palletsDelivered === palletsBilled ? "מאוזן 1:1 ✅" : "חריגה במשטחים ⚠️"}).
 
 🛰️ איתוראן וזמן מנוף:
-• נהג: ${currentNote.driver || 'חכמת 615-41-002'} | שהייה באתר: ${currentNote.gps?.note || '40 דק׳ מנוף מאומתות'}.
+• נהג: ${currentNote.driver || "חכמת 615-41-002"} | שהייה באתר: ${currentNote.gps?.note || "40 דק׳ מנוף מאומתות"}.
 
 👑 מסקנה להראל מנכ״ל:
 ${
-  audit.status === 'ok'
-    ? 'התעודה נקייה לחלוטין מתקלות ומסונכרנת לתיקיית הלקוח בדרייב. ממליצה לאשר שלב ראמי ולהעביר לחתימת הראל.'
-    : 'ישנה חריגה קלה בפקדונות או בכמויות. סמן במרקר צהוב ודרוש אימות טלפוני לפני אישור סופי.'
+  audit.status === "ok"
+    ? "התעודה נקייה לחלוטין מתקלות ומסונכרנת לתיקיית הלקוח בדרייב. ממליצה לאשר שלב ראמי ולהעביר לחתימת הראל."
+    : "ישנה חריגה קלה בפקדונות או בכמויות. סמן במרקר צהוב ודרוש אימות טלפוני לפני אישור סופי."
 }`;
 
     // הפעלת אפקט הקלדה (Typewriter Effect)
     setIsTyping(true);
-    setTypingText('');
+    setTypingText("");
     let currentIndex = 0;
 
     const timer = setInterval(() => {
@@ -245,12 +250,15 @@ ${
           ...prev,
           {
             id: `noa-${Date.now()}`,
-            sender: 'noa',
+            sender: "noa",
             text: fullAnalysis,
-            timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date().toLocaleTimeString("he-IL", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
           },
         ]);
-        setTypingText('');
+        setTypingText("");
       }
     }, 12);
 
@@ -259,7 +267,7 @@ ${
 
   // גלילה אוטומטית לתחתית הצ'אט
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, typingText]);
 
   // שליחת הודעה בצ'אט מראמי לנועה
@@ -269,24 +277,24 @@ ${
 
     const userMsg: ChatMessage = {
       id: `rami-${Date.now()}`,
-      sender: 'rami',
+      sender: "rami",
       text: userInput.trim(),
-      timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
     const query = userInput.trim();
-    setUserInput('');
+    setUserInput("");
 
     setTimeout(() => {
       let reply = `ראמי, רשמתי לפניי. `;
-      if (query.includes('תיקייה') || query.includes('דרייב') || query.includes('תיוק')) {
+      if (query.includes("תיקייה") || query.includes("דרייב") || query.includes("תיוק")) {
         reply += `התעודה מתוייקת בנתיב הקנוני: ${customerFolderInfo.folderPath}. כל אישור שתבצע מתועד בגיליון ארכיון תעודות משלוח ומסונכרן מיידית לדרייב.`;
-      } else if (query.includes('פקדון') || query.includes('משטח') || query.includes('בלה')) {
+      } else if (query.includes("פקדון") || query.includes("משטח") || query.includes("בלה")) {
         reply += `לפי חוק הפקדונות ונוהל סבן, עלינו לוודא מאזן כמותי מלא של 1:1 לכל בלה 60002 ולכל משטח עץ 60060 שהוחזר מהאתר (ללא חיוב כספי בעת החזרה מלאה). המאזן מתועד בגיליון.`;
-      } else if (query.includes('חתימה') || query.includes('מי חתם')) {
-        reply += `התעודה נחתמה באתר ע״י ${currentNote.signedBy || 'מנהל העבודה'}. החתימה ברורה, ומצורפת להצהרת מסירה תקינה.`;
-      } else if (query.includes('אשר') || query.includes('הראל')) {
+      } else if (query.includes("חתימה") || query.includes("מי חתם")) {
+        reply += `התעודה נחתמה באתר ע״י ${currentNote.signedBy || "מנהל העבודה"}. החתימה ברורה, ומצורפת להצהרת מסירה תקינה.`;
+      } else if (query.includes("אשר") || query.includes("הראל")) {
         reply += `שלב ראמי מוכן לאישור. הטבעתי חותמת דיגיטלית בפינה, בלחיצה על 'אשר שלב' הסטטוס יועבר ישירות לדשבורד של הראל.`;
       } else {
         reply += `אני עוקבת אחרי התעודה בזמן אמת. כל סימון שתעשה במרקר הצהוב יישמר ישירות בתיקיית הלקוח ב-Google Drive.`;
@@ -296,9 +304,9 @@ ${
         ...prev,
         {
           id: `noa-reply-${Date.now()}`,
-          sender: 'noa',
+          sender: "noa",
           text: reply,
-          timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
     }, 450);
@@ -306,16 +314,22 @@ ${
 
   /* ----------------- פעולות שמירה ואישור ----------------- */
   const handleSaveToFolder = async (dataUrl: string) => {
-    console.log('Saving final canvas to customer folder...', customerFolderInfo.folderPath, dataUrl);
-    toast.success(`תעודה #${currentNote.id} נשמרה בתיקיית הלקוח: ${customerFolderInfo.folderPath}! 📁`);
+    console.log(
+      "Saving final canvas to customer folder...",
+      customerFolderInfo.folderPath,
+      dataUrl,
+    );
+    toast.success(
+      `תעודה #${currentNote.id} נשמרה בתיקיית הלקוח: ${customerFolderInfo.folderPath}! 📁`,
+    );
   };
 
   const handleUpdateSheetLog = async (statusMessage: string) => {
     try {
       await submitApproval(
         currentNote.id,
-        statusMessage.includes('הראל') ? 'harel' : 'rami',
-        statusMessage
+        statusMessage.includes("הראל") ? "harel" : "rami",
+        statusMessage,
       );
       toast.info(`הסטטוס נרשם בגיליון "מערכת מאוחדת": ${statusMessage}`);
     } catch {
@@ -382,7 +396,7 @@ ${
             className="rounded-xl h-8 text-xs shrink-0"
             title="רענן מגיליון"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingNotes ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingNotes ? "animate-spin" : ""}`} />
           </Button>
 
           {notesList.map((note) => {
@@ -391,10 +405,10 @@ ${
               <Button
                 key={note.id}
                 size="sm"
-                variant={isSelected ? 'default' : 'outline'}
+                variant={isSelected ? "default" : "outline"}
                 onClick={() => setSelectedNoteId(note.id)}
                 className={`text-xs rounded-xl shrink-0 h-8 gap-1.5 ${
-                  isSelected ? 'shadow-xs font-bold' : ''
+                  isSelected ? "shadow-xs font-bold" : ""
                 }`}
               >
                 <span>#{note.comaxOrder || note.id}</span>
@@ -469,11 +483,11 @@ ${
               </div>
 
               <Badge
-                variant={audit.status === 'ok' ? 'default' : 'secondary'}
+                variant={audit.status === "ok" ? "default" : "secondary"}
                 className="text-[10px] gap-1 bg-emerald-600 text-white"
               >
                 <ShieldCheck className="h-3 w-3" />
-                {audit.status === 'ok' ? 'אומת 1:1' : 'נדרשת בדיקה'}
+                {audit.status === "ok" ? "אומת 1:1" : "נדרשת בדיקה"}
               </Badge>
             </div>
 
@@ -482,21 +496,19 @@ ${
               {chatMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${
-                    msg.sender === 'rami' ? 'items-end' : 'items-start'
-                  }`}
+                  className={`flex flex-col ${msg.sender === "rami" ? "items-end" : "items-start"}`}
                 >
                   <div
                     className={`max-w-[90%] p-3 rounded-2xl shadow-xs leading-relaxed whitespace-pre-wrap ${
-                      msg.sender === 'rami'
-                        ? 'bg-primary text-primary-foreground rounded-tl-xs'
-                        : 'bg-card border border-border/80 text-foreground rounded-tr-xs'
+                      msg.sender === "rami"
+                        ? "bg-primary text-primary-foreground rounded-tl-xs"
+                        : "bg-card border border-border/80 text-foreground rounded-tr-xs"
                     }`}
                   >
                     {msg.text}
                   </div>
                   <span className="text-[9px] text-muted-foreground mt-1 px-1">
-                    {msg.sender === 'rami' ? 'ראמי' : 'נועה AI'} · {msg.timestamp}
+                    {msg.sender === "rami" ? "ראמי" : "נועה AI"} · {msg.timestamp}
                   </span>
                 </div>
               ))}
@@ -521,28 +533,28 @@ ${
             <div className="p-2 bg-muted/40 border-t border-border/60 flex items-center gap-1.5 overflow-x-auto text-[11px]">
               <button
                 type="button"
-                onClick={() => setUserInput('בדקי לי את מאזן המשטחים והבלות שוב')}
+                onClick={() => setUserInput("בדקי לי את מאזן המשטחים והבלות שוב")}
                 className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
               >
                 ⚖️ מאזן פקדונות
               </button>
               <button
                 type="button"
-                onClick={() => setUserInput('האם יש חתימת מקבל תקינה בשטח?')}
+                onClick={() => setUserInput("האם יש חתימת מקבל תקינה בשטח?")}
                 className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
               >
                 ✍️ אימות חתימה
               </button>
               <button
                 type="button"
-                onClick={() => setUserInput('איפה התעודה הזו מתוייקת ב-Drive?')}
+                onClick={() => setUserInput("איפה התעודה הזו מתוייקת ב-Drive?")}
                 className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
               >
                 📁 תיקיית לקוח
               </button>
               <button
                 type="button"
-                onClick={() => setUserInput('התעודה מאושרת, שלחי להראל מנכ״ל')}
+                onClick={() => setUserInput("התעודה מאושרת, שלחי להראל מנכ״ל")}
                 className="shrink-0 px-2.5 py-1 rounded-lg bg-card border hover:bg-muted text-muted-foreground font-medium transition-colors"
               >
                 👑 שלח להראל

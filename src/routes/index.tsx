@@ -124,7 +124,8 @@ function Index() {
               <Link to="/notes/$id" params={{ id: n.id }} className="block p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground">
-                    ת.מ. #{n.id} · {n.driver || driverOf(n.driverId)?.name || "חכמת מנוף"} · קומקס #{n.comaxOrder}
+                    ת.מ. #{n.id} · {n.driver || driverOf(n.driverId)?.name || "חכמת מנוף"} · קומקס #
+                    {n.comaxOrder}
                   </span>
                   <StatusPill s={a.status} />
                 </div>
@@ -136,8 +137,12 @@ function Index() {
                 </p>
                 <div className="mt-3 flex items-end justify-between">
                   <div className="text-left">
-                    <span className="font-display text-2xl font-extrabold text-foreground">{noteWeightTons(n).toFixed(1)} טון</span>
-                    <span className="block text-xs text-muted-foreground font-medium">({(n.items || []).length} פריטים)</span>
+                    <span className="font-display text-2xl font-extrabold text-foreground">
+                      {noteWeightTons(n).toFixed(1)} טון
+                    </span>
+                    <span className="block text-xs text-muted-foreground font-medium">
+                      ({(n.items || []).length} פריטים)
+                    </span>
                   </div>
                   <span className="flex items-center gap-1 text-sm font-bold text-primary">
                     לתעודה ומסמכים <ChevronLeft className="h-4 w-4" />
