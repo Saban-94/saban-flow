@@ -125,7 +125,7 @@ function Index() {
               <Link to="/notes/$id" params={{ id: n.id }} className="block p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground">
-                    ת.מ. #{n.id} · {driverOf(n.driverId).name} · קומקס #{n.comaxOrder}
+                    ת.מ. #{n.id} · {n.driver || driverOf(n.driverId)?.name || "חכמת מנוף"} · קומקס #{n.comaxOrder || n.id}
                   </span>
                   <StatusPill s={a.status} />
                 </div>
