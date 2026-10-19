@@ -1,18 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/split-scan.ts": {
-      "maxDuration": 60
-    }
-  },
   "rewrites": [
     {
-      "source": "/api/split-scan",
-      "destination": "/api/split-scan"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "source": "/((?!api/|api$).*)",
+      "destination": "/index.html"
     }
   ]
 }

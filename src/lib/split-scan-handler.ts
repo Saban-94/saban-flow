@@ -8,6 +8,20 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key",
 };
 
+function extractPdfBuffer(buffer: Buffer): Buffer | null {
+  const magic = Buffer.from("%PDF-");
+  const startIdx = buffer.indexOf(magic);
+  if (startIdx === -1) return null;
+
+  const eofMagic = Buffer.from("%%EOF");
+  const endIdx = buffer.lastIndexOf(eofMagic);
+  if (endIdx === -1) {
+    return buffer.subarray(startIdx);
+  }
+
+  return buffer.subarray(startIdx, endIdx + 5);
+}
+
 export async function handleSplitScanRequest(request: Request): Promise<Response> {
   const method = request.method.toUpperCase();
 
@@ -84,51 +98,14 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     );
   }
 
-  // 6. Parse Multipart / FormData
-  let fileBuffer: ArrayBuffer;
+  // 6. Read raw body and extract PDF
+  let rawBuffer: Buffer;
   try {
-    const contentType = request.headers.get("content-type") || "";
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const file = formData.get("file");
-
-      if (!file || !(file instanceof Blob)) {
-        return Response.json(
-          { ok: false, error: "לא נמצא קובץ PDF בשדה file" },
-          {
-            status: 422,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json; charset=utf-8",
-            },
-          },
-        );
-      }
-
-      if (file.size > MAX_BODY_SIZE) {
-        return Response.json(
-          {
-            ok: false,
-            error:
-              "קובץ ה-PDF חורג ממגבלת הגודל המרבי (4.5MB). יש להעלות קובץ קטן יותר או לפצל בצד הסקריפט.",
-          },
-          {
-            status: 413,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json; charset=utf-8",
-            },
-          },
-        );
-      }
-
-      fileBuffer = await file.arrayBuffer();
-    } else {
-      fileBuffer = await request.arrayBuffer();
-    }
+    const arrayBuffer = await request.arrayBuffer();
+    rawBuffer = Buffer.from(arrayBuffer);
   } catch (err) {
     return Response.json(
-      { ok: false, error: "שגיאה בפענוח גוף הבקשה" },
+      { ok: false, error: "שגיאה בקריאת גוף הבקשה" },
       {
         status: 422,
         headers: {
@@ -139,11 +116,15 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     );
   }
 
-  if (!fileBuffer || fileBuffer.byteLength === 0) {
+  if (rawBuffer.length > MAX_BODY_SIZE) {
     return Response.json(
-      { ok: false, error: "הקובץ שהתקבל ריק" },
       {
-        status: 422,
+        ok: false,
+        error:
+          "קובץ ה-PDF חורג ממגבלת הגודל המרבי (4.5MB). יש להעלות קובץ קטן יותר או לפצל בצד הסקריפט.",
+      },
+      {
+        status: 413,
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json; charset=utf-8",
@@ -152,16 +133,8 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     );
   }
 
-  // 7. Verify PDF header (magic bytes: %PDF-)
-  const headerBytes = new Uint8Array(fileBuffer.slice(0, 5));
-  const isPdfHeader =
-    headerBytes[0] === 0x25 && // %
-    headerBytes[1] === 0x50 && // P
-    headerBytes[2] === 0x44 && // D
-    headerBytes[3] === 0x46 && // F
-    headerBytes[4] === 0x2d; // -
-
-  if (!isPdfHeader) {
+  const pdfBuffer = extractPdfBuffer(rawBuffer);
+  if (!pdfBuffer || pdfBuffer.length === 0) {
     return Response.json(
       { ok: false, error: "הקובץ שנשלח אינו קובץ PDF תקין" },
       {
@@ -174,15 +147,15 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     );
   }
 
-  // 8. Load PDF with pdf-lib and validate page count
+  // 7. Load PDF with pdf-lib and validate page count
   let srcDoc: PDFDocument;
   let totalPages = 0;
   try {
-    srcDoc = await PDFDocument.load(fileBuffer);
+    srcDoc = await PDFDocument.load(pdfBuffer);
     totalPages = srcDoc.getPageCount();
   } catch {
     return Response.json(
-      { ok: false, error: "שגיאה בטעינת קובץ ה-PDF (קובץ פגום או לא קריא)" },
+      { ok: false, error: "שגיאה בפענוח קובץ ה-PDF (קובץ פגום או לא קריא)" },
       {
         status: 422,
         headers: {
@@ -193,11 +166,6 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     );
   }
 
-  // Structure requirement:
-  // Page 1: Manifest
-  // Pages 2 to N-1: Delivery Notes
-  // Page N: Tachograph disc
-  // Minimum required: 3 pages
   if (totalPages < 3) {
     return Response.json(
       {
@@ -215,8 +183,8 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     );
   }
 
-  // 9. Split Pages:
-  // Pages 2 to N-1 (0-indexed: index 1 to totalPages - 2)
+  // 8. Split Pages:
+  // Pages 2 to N-1 (index 1 to totalPages - 2)
   const pages: string[] = [];
   for (let i = 1; i < totalPages - 1; i++) {
     const singleDoc = await PDFDocument.create();
@@ -226,7 +194,7 @@ export async function handleSplitScanRequest(request: Request): Promise<Response
     pages.push(Buffer.from(singlePdfBytes).toString("base64"));
   }
 
-  // Page N: Tachograph disc (0-indexed: index totalPages - 1)
+  // Page N: Tachograph disc (index totalPages - 1)
   const tachographDoc = await PDFDocument.create();
   const [tachoPage] = await tachographDoc.copyPages(srcDoc, [totalPages - 1]);
   if (tachoPage) tachographDoc.addPage(tachoPage);
