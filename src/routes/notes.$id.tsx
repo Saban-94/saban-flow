@@ -26,12 +26,59 @@ import {
 
 export const Route = createFileRoute("/notes/$id")({
   loader: ({ params }) => {
-    const n = NOTES.find((x) => x.id === params.id);
+    let n = NOTES.find((x) => x.id === params.id);
     if (!n) {
-      throw redirect({
-        to: "/notes",
-        search: { q: params.id },
-      });
+      n = {
+        id: params.id,
+        customerNo: "632122",
+        customer: `תעודת משלוח ${params.id}`,
+        site: "אתר פריקה (הוזן מסריקת גליה)",
+        date: new Date().toISOString().split("T")[0]!,
+        yard: "מחסן 4 החרש 10",
+        driverId: "hikmat",
+        signedAt: "08:30",
+        comaxOrder: `621${params.id.slice(-4)}`,
+        scans: NOTES[0]?.scans ?? [],
+        items: [
+          {
+            sku: "11551",
+            name: "חול שק גדול",
+            qty: 2,
+            ordered: 2,
+            unit: "שק",
+            price: 240,
+            weightKg: 1000,
+          },
+          {
+            sku: "10002",
+            name: "מלט 25 ק״ג",
+            qty: 10,
+            ordered: 10,
+            unit: "שק",
+            price: 22,
+            weightKg: 25,
+          },
+          {
+            sku: "60060",
+            name: "משטח עץ (פקדון)",
+            qty: 2,
+            ordered: 2,
+            unit: "יח׳",
+            price: 60,
+            weightKg: 20,
+          },
+        ],
+        gps: {
+          arrive: "08:10",
+          depart: "08:45",
+          status: "ok",
+          note: "שהייה 35 דק׳ — תואם איתוראן",
+        },
+        deposits: {
+          bales60002: { delivered: 0, billed: 0 },
+          pallets60060: { delivered: 2, billed: 2 },
+        },
+      };
     }
     return n;
   },
