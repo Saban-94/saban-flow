@@ -1,46 +1,222 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { NOTES, auditNote, fmtDate, ils, noteTotal } from "@/lib/data";
+import {
+  NOTES,
+  auditNote,
+  fmtDate,
+  ils,
+  noteTotal,
+  driverOf,
+  SPREADSHEET_URL,
+  SPREADSHEET_ID,
+  TAB_GALYA_ARCHIVE,
+} from "@/lib/data";
 import { PageHeader, StatusPill } from "@/components/AppShell";
+import { ScanSplitterModal } from "./ScanSplitterModal";
+import {
+  Table as TableIcon,
+  LayoutGrid,
+  ExternalLink,
+  Search,
+  FileText,
+  Layers,
+  Sparkles,
+} from "lucide-react";
 
 export function NotesArchive() {
   const [q, setQ] = useState("");
-  const list = NOTES.filter((n) => [n.customer, n.id, n.yard, n.date].join(" ").includes(q));
+  const [viewMode, setViewMode] = useState<"cards" | "sheet">("cards");
+
+  const list = NOTES.filter((n) =>
+    [n.customer, n.id, n.yard, n.date, n.customerNo, n.comaxOrder].join(" ").includes(q),
+  );
+
   return (
     <>
-      <PageHeader title="ארכיון תעודות" subtitle="סריקת גליה · 13/10/2026" />
-      <div className="mx-auto max-w-4xl space-y-3 px-4 py-6 md:px-8">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="חיפוש לקוח / מספר תעודה / מחסן"
-          className="w-full rounded-2xl border bg-card px-4 py-3"
-        />
-        {list.map((n) => (
-          <Link
-            key={n.id}
-            to="/notes/$id"
-            params={{ id: n.id }}
-            className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-card"
-          >
-            {n.scans?.[0] && (
-              <img
-                src={n.scans[0]}
-                alt=""
-                loading="lazy"
-                className="h-20 w-16 rounded-lg object-cover"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-xs text-muted-foreground">
-                ת.מ. {n.id} · {fmtDate(n.date)} · {n.yard}
+      <PageHeader
+        title="ארכיון תעודות משלוח"
+        subtitle="סריקות גליה · פיצול מרוכז וסנכרון גיליון"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <ScanSplitterModal />
+            <a
+              href={SPREADSHEET_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-2xl border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-emerald-600" />
+              גיליון ראשי
+            </a>
+          </div>
+        }
+      />
+
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 md:px-8">
+        {/* Top Controls: Search + View Switcher */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute right-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="חיפוש לפי לקוח / מספר תעודה / הזמנת קומקס / מחסן"
+              className="w-full rounded-2xl border bg-card py-2.5 pr-10 pl-4 text-sm shadow-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-1 self-end rounded-2xl border bg-muted/40 p-1">
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                viewMode === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" /> כרטיסים מהירים
+            </button>
+            <button
+              onClick={() => setViewMode("sheet")}
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                viewMode === "sheet" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              <TableIcon className="h-3.5 w-3.5" /> טאב 1: {TAB_GALYA_ARCHIVE}
+            </button>
+          </div>
+        </div>
+
+        {/* View Mode 1: Cards */}
+        {viewMode === "cards" ? (
+          <div className="space-y-3">
+            {list.map((n) => {
+              const audit = auditNote(n);
+              return (
+                <Link
+                  key={n.id}
+                  to="/notes/$id"
+                  params={{ id: n.id }}
+                  className="flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-card transition hover:border-primary/50 sm:flex-row sm:items-center"
+                >
+                  {n.scans?.[0] && (
+                    <img
+                      src={n.scans[0]}
+                      alt=""
+                      loading="lazy"
+                      className="h-24 w-20 shrink-0 rounded-xl border object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">ת.מ. {n.id}</span>
+                      <span>·</span>
+                      <span>הזמנה: {n.comaxOrder}</span>
+                      <span>·</span>
+                      <span>{fmtDate(n.date)}</span>
+                      <span>·</span>
+                      <span>{n.yard}</span>
+                      <span>·</span>
+                      <span>נהג: {driverOf(n.driverId).name}</span>
+                    </div>
+                    <div className="font-display text-lg font-bold">{n.customer}</div>
+                    <div className="text-xs text-muted-foreground">{n.site}</div>
+                    <div className="flex items-center gap-3 pt-1">
+                      <span className="font-display text-base font-bold text-primary">
+                        {ils(noteTotal(n))}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {n.items.length} שורות מוצר
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
+                    <StatusPill s={audit.status} />
+                    <span className="flex items-center gap-1 text-xs font-bold text-primary">
+                      <Layers className="h-3.5 w-3.5" /> פתח Delivery Canvas
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          /* View Mode 2: Full Google Sheet Tab View (A to L columns) */
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
+            <div className="flex items-center justify-between border-b bg-muted/40 p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-emerald-600" />
+                <span className="font-display font-bold text-sm">
+                  מבנה גיליון: {TAB_GALYA_ARCHIVE}
+                </span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                  סנכרון תלת-כיווני
+                </span>
               </div>
-              <div className="font-bold">{n.customer}</div>
-              <div className="text-sm">{ils(noteTotal(n))}</div>
+              <span className="text-xs text-muted-foreground">
+                מזהה גיליון: {SPREADSHEET_ID.slice(0, 16)}...
+              </span>
             </div>
-            <StatusPill s={auditNote(n).status} />
-          </Link>
-        ))}
+
+            <div className="overflow-x-auto text-xs">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="border-b bg-muted/20 text-muted-foreground">
+                    <th className="p-3 whitespace-nowrap">A: תאריך ויום</th>
+                    <th className="p-3 whitespace-nowrap">B: שם מסמך מקור (גליה)</th>
+                    <th className="p-3 whitespace-nowrap">C: מסמך מקור</th>
+                    <th className="p-3 whitespace-nowrap">D: כמות בקובץ</th>
+                    <th className="p-3 whitespace-nowrap">E: ת.מ.</th>
+                    <th className="p-3 whitespace-nowrap">F: בגין הזמנה</th>
+                    <th className="p-3 whitespace-nowrap">G: לקוח ומספר</th>
+                    <th className="p-3 whitespace-nowrap">H: מחסן</th>
+                    <th className="p-3 whitespace-nowrap">I: נהג ומשאית</th>
+                    <th className="p-3 whitespace-nowrap">J: כתובת אספקה</th>
+                    <th className="p-3 whitespace-nowrap">K: צפייה בתעודה</th>
+                    <th className="p-3 whitespace-nowrap">L: סטטוס תיוק</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {list.map((n, i) => {
+                    const driver = driverOf(n.driverId);
+                    return (
+                      <tr key={n.id} className="hover:bg-muted/30">
+                        <td className="p-3 whitespace-nowrap font-medium">{fmtDate(n.date)}</td>
+                        <td className="p-3 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                          scan12026-10-14-081059.pdf
+                        </td>
+                        <td className="p-3 whitespace-nowrap text-primary">📂 מסמך מקור מרוכז</td>
+                        <td className="p-3 whitespace-nowrap">4 תעודות</td>
+                        <td className="p-3 whitespace-nowrap font-bold">{n.id}</td>
+                        <td className="p-3 whitespace-nowrap font-mono">{n.comaxOrder}</td>
+                        <td className="p-3 whitespace-nowrap font-semibold">
+                          {n.customer} ({n.customerNo})
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          {n.yard.split(" ")[1]} ({n.yard.split(" ")[2]})
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          {driver.name} ({driver.plate})
+                        </td>
+                        <td className="p-3 whitespace-nowrap max-w-xs truncate">{n.site}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          <Link
+                            to="/notes/$id"
+                            params={{ id: n.id }}
+                            className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                          >
+                            <Layers className="h-3 w-3" /> 📄 צפה בתעודה
+                          </Link>
+                        </td>
+                        <td className="p-3 whitespace-nowrap font-medium text-emerald-700">
+                          ✅ פוצל ותוייק בתיק לקוח
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

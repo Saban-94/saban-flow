@@ -61,7 +61,79 @@ import p11 from "@/assets/scans/p11.jpg.asset.json";
 import p12 from "@/assets/scans/p12.jpg.asset.json";
 import p13 from "@/assets/scans/p13.jpg.asset.json";
 
+export const SPREADSHEET_ID = "1FsLseQrKbIj_AvlE6-dW4J12Gr88P3uaoFVBjEcUjsw";
+export const SPREADSHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`;
+export const TAB_GALYA_ARCHIVE = "ארכיון_תעודות_גליה";
+export const TAB_TACHOGRAPH = "טכוגרף";
+
 export const TACHOGRAPH_1310 = p13.url;
+
+export type TachographRecord = {
+  id: string;
+  date: string;
+  driverName: string;
+  truckId: string;
+  originalFileName: string;
+  kmStart: number;
+  kmEnd: number;
+  kmTotal: number;
+  ptoHours: string;
+  idleWarnings: number;
+  discUrl: string;
+  ituranMatch: string;
+  ramiApproved: boolean;
+  ramiApprovedAt?: string;
+};
+
+export const INITIAL_TACHOGRAPHS: TachographRecord[] = [
+  {
+    id: "tacho-141026",
+    date: "14/10/2026",
+    driverName: "חכמת",
+    truckId: "615-41-002",
+    originalFileName: "scan12026-10-14-081059.pdf",
+    kmStart: 342110,
+    kmEnd: 342248,
+    kmTotal: 138,
+    ptoHours: "02:20",
+    idleWarnings: 0,
+    discUrl: p13.url,
+    ituranMatch: "99.4% תואם איתוראן ✅",
+    ramiApproved: true,
+    ramiApprovedAt: "14/10/2026, 17:45",
+  },
+  {
+    id: "tacho-131026",
+    date: "13/10/2026",
+    driverName: "חכמת",
+    truckId: "615-41-002",
+    originalFileName: "scan12026-10-13-164022.pdf",
+    kmStart: 341968,
+    kmEnd: 342110,
+    kmTotal: 142,
+    ptoHours: "03:10",
+    idleWarnings: 0,
+    discUrl: p13.url,
+    ituranMatch: "98.9% תואם איתוראן ✅",
+    ramiApproved: true,
+    ramiApprovedAt: "13/10/2026, 18:02",
+  },
+  {
+    id: "tacho-151026",
+    date: "15/10/2026",
+    driverName: "עלי",
+    truckId: "651-51-701",
+    originalFileName: "scan12026-10-15-171015.pdf",
+    kmStart: 218430,
+    kmEnd: 218545,
+    kmTotal: 115,
+    ptoHours: "00:00 (משאית פלטה)",
+    idleWarnings: 0,
+    discUrl: p13.url,
+    ituranMatch: "100% תואם איתוראן ✅",
+    ramiApproved: false,
+  },
+];
 
 const AZULA = { customerNo: "632122", customer: "א. ערן אזולא", site: "נח 3, תל אביב" };
 const D = "2026-10-13";
