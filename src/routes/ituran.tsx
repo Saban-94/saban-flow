@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   TACHOGRAPH_1310,
@@ -27,6 +27,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
+import { useLiveSheetData } from "@/lib/sheet-data";
+
 export const Route = createFileRoute("/ituran")({
   head: () => ({
     meta: [
@@ -44,8 +46,21 @@ export const Route = createFileRoute("/ituran")({
 
 function IturanScreen() {
   const [activeTab, setActiveTab] = useState<"tachograph" | "crossmatch">("tachograph");
-  const [tachographs, setTachographs] = useState(INITIAL_TACHOGRAPHS);
-  const [selectedTacho, setSelectedTacho] = useState(INITIAL_TACHOGRAPHS[0]);
+  const { tachographs: liveTachs, notes: liveNotes, refresh, isLoading } = useLiveSheetData();
+
+  const currentTachs = liveTachs.length > 0 ? liveTachs : INITIAL_TACHOGRAPHS;
+  const currentNotes = liveNotes.length > 0 ? liveNotes : NOTES;
+
+  const [tachographs, setTachographs] = useState(currentTachs);
+  const [selectedTacho, setSelectedTacho] = useState(currentTachs[0]);
+
+  // Update when liveTachs loads
+  useEffect(() => {
+    if (liveTachs.length > 0) {
+      setTachographs(liveTachs);
+      setSelectedTacho((prev) => (prev ? liveTachs.find((t) => t.id === prev.id) || liveTachs[0] : liveTachs[0]));
+    }
+  }, [liveTachs]);
 
   const approveTacho = (id: string) => {
     const stamp = new Date().toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });

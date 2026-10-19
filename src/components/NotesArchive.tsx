@@ -11,6 +11,7 @@ import {
   SPREADSHEET_ID,
   TAB_GALYA_ARCHIVE,
 } from "@/lib/data";
+import { useLiveSheetData } from "@/lib/sheet-data";
 import { PageHeader, StatusPill } from "@/components/AppShell";
 import { ScanSplitterModal } from "./ScanSplitterModal";
 import {
@@ -20,8 +21,10 @@ import {
   Search,
   FileText,
   Layers,
-  Sparkles,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export function NotesArchive() {
   const [q, setQ] = useState(() => {
@@ -32,18 +35,39 @@ export function NotesArchive() {
     return "";
   });
   const [viewMode, setViewMode] = useState<"cards" | "sheet">("cards");
+  const { notes: liveNotes, isLoading, isLive, lastSync, refresh } = useLiveSheetData();
 
-  const list = NOTES.filter((n) =>
-    [n.customer, n.id, n.yard, n.date, n.customerNo, n.comaxOrder].join(" ").includes(q),
+  const currentNotes = liveNotes.length > 0 ? liveNotes : NOTES;
+
+  const list = currentNotes.filter((n) =>
+    [n.customer, n.id, n.yard, n.date, n.customerNo, n.comaxOrder, n.site].join(" ").includes(q),
   );
+
+  const handleRefresh = async () => {
+    try {
+      await refresh();
+      toast.success("הנתונים סונכרנו בהצלחה מגיליון Google Sheets 🟢");
+    } catch {
+      toast.error("שגיאה בסנכרון מול הגיליון");
+    }
+  };
 
   return (
     <>
       <PageHeader
         title="ארכיון תעודות משלוח"
-        subtitle="סריקות גליה · פיצול מרוכז וסנכרון גיליון"
+        subtitle="נתונים חיים מגיליון · סריקות גליה ופיצול ישיר"
         action={
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 rounded-2xl border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted disabled:opacity-50"
+              title="רענן נתונים ישירות מהגיליון"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-primary ${isLoading ? "animate-spin" : ""}`} />
+              <span>{isLoading ? "מסנכרן..." : "רענן מגיליון"}</span>
+            </button>
             <ScanSplitterModal />
             <a
               href={SPREADSHEET_URL}
@@ -59,6 +83,20 @@ export function NotesArchive() {
       />
 
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 md:px-8">
+        {/* Live sync banner */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-card/60 px-4 py-2 text-xs text-muted-foreground shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-foreground">נתונים חיים מגיליון סבן:</span>
+            <span>{currentNotes.length} תעודות משלוח מאומתות</span>
+            {lastSync && <span>· סנכרון אחרון: {lastSync}</span>}
+          </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            <span>סנכרון פעיל (טאב {TAB_GALYA_ARCHIVE})</span>
+          </div>
+        </div>
+
         {/* Top Controls: Search + View Switcher */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1">
@@ -66,8 +104,8 @@ export function NotesArchive() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="חיפוש לפי לקוח / מספר תעודה / הזמנת קומקס / מחסן"
-              className="w-full rounded-2xl border bg-card py-2.5 pr-10 pl-4 text-sm shadow-sm"
+              placeholder="חיפוש לפי לקוח / מספר תעודה / הזמנת קומקס / מחסן / אתר"
+              className="w-full rounded-2xl border bg-card py-2.5 pr-10 pl-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
 
@@ -103,7 +141,7 @@ export function NotesArchive() {
                   params={{ id: n.id }}
                   className="flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-card transition hover:border-primary/50 sm:flex-row sm:items-center"
                 >
-                  {n.scans?.[0] && (
+                  {n.scans?.[0] && !n.scans[0].includes("drive.google.com") && (
                     <img
                       src={n.scans[0]}
                       alt=""
@@ -132,6 +170,11 @@ export function NotesArchive() {
                       <span className="text-xs text-muted-foreground">
                         {n.items.length} שורות מוצר
                       </span>
+                      {n.filingStatus && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                          {n.filingStatus}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
@@ -154,7 +197,7 @@ export function NotesArchive() {
                   מבנה גיליון: {TAB_GALYA_ARCHIVE}
                 </span>
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                  סנכרון תלת-כיווני
+                  סנכרון חי מגיליון
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -181,24 +224,35 @@ export function NotesArchive() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {list.map((n, i) => {
+                  {list.map((n) => {
                     const driver = driverOf(n.driverId);
                     return (
                       <tr key={n.id} className="hover:bg-muted/30">
                         <td className="p-3 whitespace-nowrap font-medium">{fmtDate(n.date)}</td>
                         <td className="p-3 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                          scan12026-10-14-081059.pdf
+                          {n.sourceFileName || "scan-daily.pdf"}
                         </td>
-                        <td className="p-3 whitespace-nowrap text-primary">📂 מסמך מקור מרוכז</td>
-                        <td className="p-3 whitespace-nowrap">4 תעודות</td>
+                        <td className="p-3 whitespace-nowrap">
+                          {n.sourceFileLink ? (
+                            <a
+                              href={n.sourceFileLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              📂 מסמך מקור
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">{n.items.length} פריטים</td>
                         <td className="p-3 whitespace-nowrap font-bold">{n.id}</td>
                         <td className="p-3 whitespace-nowrap font-mono">{n.comaxOrder}</td>
                         <td className="p-3 whitespace-nowrap font-semibold">
                           {n.customer} ({n.customerNo})
                         </td>
-                        <td className="p-3 whitespace-nowrap">
-                          {n.yard.split(" ")[1]} ({n.yard.split(" ")[2]})
-                        </td>
+                        <td className="p-3 whitespace-nowrap">{n.yard}</td>
                         <td className="p-3 whitespace-nowrap">
                           {driver.name} ({driver.plate})
                         </td>
@@ -213,7 +267,7 @@ export function NotesArchive() {
                           </Link>
                         </td>
                         <td className="p-3 whitespace-nowrap font-medium text-emerald-700">
-                          ✅ פוצל ותוייק בתיק לקוח
+                          {n.filingStatus || "✅ פוצל ותוייק בתיק לקוח"}
                         </td>
                       </tr>
                     );

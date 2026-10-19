@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ORDERS, DRIVERS, type Order, driverOf, ils } from "@/lib/data";
+import { ORDERS, type Order, driverOf, SPREADSHEET_URL } from "@/lib/data";
+import { useLiveSheetData } from "@/lib/sheet-data";
 import { PageHeader } from "@/components/AppShell";
 import {
   ClipboardList,
@@ -12,9 +13,12 @@ import {
   ChevronDown,
   Package,
   Weight,
-  Sparkles,
+  RefreshCw,
   ExternalLink,
+  Layers,
+  CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/orders")({
   head: () => ({
@@ -25,37 +29,79 @@ export const Route = createFileRoute("/orders")({
         content: "לוח הזמנות חיות מגיליון מאגר מידע נועה, כולל מניפסט פריטים ושיבוץ נהגים.",
       },
       { property: "og:title", content: "הזמנות חיות — ח. סבן" },
-      { property: "og:description", content: "ניהול אספקות ומניפסט פריטים בזמן אמת." },
+      { property: "og:description", content: "ניהול אספקות ומניפסט פריטים בזמן אמת מגיליון." },
     ],
   }),
   component: OrdersScreen,
 });
 
 function OrdersScreen() {
-  const [orders, setOrders] = useState<Order[]>(ORDERS);
-  const [expandedId, setExpandedId] = useState<string | null>("37901");
+  const { orders: liveOrders, isLoading, lastSync, refresh } = useLiveSheetData();
+  const currentOrders = liveOrders.length > 0 ? liveOrders : ORDERS;
+
+  const [expandedId, setExpandedId] = useState<string | null>(() => currentOrders[0]?.id || null);
   const [filterYard, setFilterYard] = useState<string>("all");
 
-  const filtered = orders.filter((o) => (filterYard === "all" ? true : o.yard === filterYard));
+  const filtered = currentOrders.filter((o) =>
+    filterYard === "all" ? true : o.yard === filterYard,
+  );
 
   const totalTons = (items: Order["items"]) =>
     items.reduce((s, i) => s + (i.qty * i.weightKg) / 1000, 0).toFixed(1);
+
+  const handleRefresh = async () => {
+    try {
+      await refresh();
+      toast.success("ההזמנות סונכרנו בהצלחה מגיליון Google Sheets 🟢");
+    } catch {
+      toast.error("שגיאה בסנכרון ההזמנות מול הגיליון");
+    }
+  };
 
   return (
     <>
       <PageHeader
         title="לוח הזמנות חיות"
-        subtitle="סנכרון ישיר למאגר מידע נועה · מניפסט אספקות"
+        subtitle="נתונים חיים מגיליון · מניפסט אספקות ושיבוץ נהגים"
         action={
           <div className="flex items-center gap-2">
-            <span className="rounded-2xl bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800">
-              🟢 סנכרון תלת-כיווני פעיל
-            </span>
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 rounded-2xl border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted disabled:opacity-50"
+              title="רענן הזמנות ישירות מהגיליון"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-primary ${isLoading ? "animate-spin" : ""}`} />
+              <span>{isLoading ? "מסנכרן..." : "רענן מגיליון"}</span>
+            </button>
+            <a
+              href={SPREADSHEET_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-2xl border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-emerald-600" />
+              גיליון ראשי
+            </a>
           </div>
         }
       />
 
       <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-8">
+        {/* Live sync banner */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-card/60 px-4 py-2 text-xs text-muted-foreground shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-foreground">הזמנות חיות מהגיליון:</span>
+            <span>{currentOrders.length} הזמנות פעילות ומאומתות</span>
+            {lastSync && <span>· סנכרון אחרון: {lastSync}</span>}
+          </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            <span>סנכרון פעיל מול גיליון סבן</span>
+          </div>
+        </div>
+
         {/* Filters and Stats */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
@@ -67,7 +113,7 @@ function OrdersScreen() {
                   : "border bg-card text-muted-foreground"
               }`}
             >
-              כל המחסנים ({orders.length})
+              כל המחסנים ({currentOrders.length})
             </button>
             <button
               onClick={() => setFilterYard("מחסן 4 החרש 10")}
@@ -145,7 +191,9 @@ function OrdersScreen() {
                           ? "bg-primary/15 text-primary"
                           : o.status === "בהעמסה"
                             ? "bg-amber-100 text-amber-800"
-                            : "bg-muted text-muted-foreground"
+                            : o.status === "סופק"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {o.status}
@@ -194,8 +242,8 @@ function OrdersScreen() {
                         </div>
                       </div>
 
-                      {/* Navigation & Contact */}
-                      <div className="flex items-center gap-2">
+                      {/* Navigation, Contact & Delivery Note Link */}
+                      <div className="flex flex-wrap items-center gap-2">
                         <a
                           href={`https://waze.com/ul?q=${encodeURIComponent(o.address)}`}
                           target="_blank"
@@ -210,13 +258,22 @@ function OrdersScreen() {
                         >
                           <Phone className="h-3.5 w-3.5 text-primary" /> {o.phone}
                         </a>
+                        {o.deliveryNoteId && (
+                          <Link
+                            to="/notes/$id"
+                            params={{ id: o.deliveryNoteId }}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-xs font-bold text-primary hover:bg-primary/20"
+                          >
+                            <Layers className="h-3.5 w-3.5" /> ת.מ. #{o.deliveryNoteId}
+                          </Link>
+                        )}
                       </div>
                     </div>
 
                     {/* Items Manifest Table */}
                     <div className="rounded-xl border bg-card overflow-hidden">
                       <div className="border-b bg-muted/40 px-4 py-2 text-xs font-bold text-muted-foreground">
-                        מניפסט פריטים וחיוב פקדונות:
+                        מניפסט פריטים מגיליון קומקס וחיוב פקדונות:
                       </div>
                       <div className="divide-y text-xs">
                         {o.items.map((item, idx) => (
