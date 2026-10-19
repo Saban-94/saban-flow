@@ -24,7 +24,13 @@ import {
 } from "lucide-react";
 
 export function NotesArchive() {
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => {
+    if (typeof window !== "undefined") {
+      const urlQ = new URLSearchParams(window.location.search).get("q");
+      if (urlQ) return urlQ;
+    }
+    return "";
+  });
   const [viewMode, setViewMode] = useState<"cards" | "sheet">("cards");
 
   const list = NOTES.filter((n) =>

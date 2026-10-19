@@ -1,4 +1,4 @@
-import { createFileRoute, notFound, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   NOTES,
@@ -27,7 +27,12 @@ import {
 export const Route = createFileRoute("/notes/$id")({
   loader: ({ params }) => {
     const n = NOTES.find((x) => x.id === params.id);
-    if (!n) throw notFound();
+    if (!n) {
+      throw redirect({
+        to: "/notes",
+        search: { q: params.id },
+      });
+    }
     return n;
   },
   head: ({ params }) => ({

@@ -2,6 +2,11 @@ import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { NotesArchive } from "@/components/NotesArchive";
 
 export const Route = createFileRoute("/notes")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } => {
+    return {
+      q: typeof search.q === "string" ? search.q : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "ארכיון תעודות משלוח — נועה ח. סבן" },
