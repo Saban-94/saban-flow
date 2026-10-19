@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
-  NOTES,
   auditNote,
   ils,
   noteTotal,
@@ -26,49 +25,43 @@ import {
 } from "lucide-react";
 import deliveryNoteFallback from "@/assets/delivery-note.jpg";
 
+import { fetchLiveDeliveriesAndOrders, getSheetDataSnapshot } from "@/lib/sheet-data";
+
 export const Route = createFileRoute("/notes/$id")({
-  loader: ({ params }) => {
-    let n = NOTES.find((x) => x.id === params.id);
+  loader: async ({ params }) => {
+    const snapshot = getSheetDataSnapshot();
+    let n = snapshot.notes.find((x) => x.id === params.id || x.comaxOrder === params.id);
+
+    if (!n) {
+      try {
+        const { notes } = await fetchLiveDeliveriesAndOrders();
+        n = notes.find((x) => x.id === params.id || x.comaxOrder === params.id);
+      } catch (err) {
+        console.warn("Could not fetch note from sheet:", err);
+      }
+    }
+
     if (!n) {
       n = {
         id: params.id,
-        customerNo: "600000",
+        customerNo: "---",
         customer: `תעודת משלוח ${params.id}`,
         site: "אתר פריקה (הוזן מסריקת גליה)",
         date: new Date().toISOString().split("T")[0]!,
         yard: "מחסן 4 החרש 10",
         driverId: "hikmat",
         signedAt: "08:30",
-        comaxOrder: `621${params.id.slice(-4)}`,
+        comaxOrder: params.id,
         scans: [deliveryNoteFallback],
-        items: [
-          {
-            sku: "SKU-10001",
-            name: "חול שק גדול",
-            qty: 2,
-            ordered: 2,
-            unit: "בלה",
-            price: 240,
-            weightKg: 1000,
-          },
-          {
-            sku: "SKU-10002",
-            name: "מלט 25 ק״ג",
-            qty: 10,
-            ordered: 10,
-            unit: "שק",
-            price: 22,
-            weightKg: 25,
-          },
-        ],
+        items: [],
         gps: {
-          arrive: "08:10",
-          depart: "08:45",
+          arrive: "--:--",
+          depart: "--:--",
           status: "ok",
-          note: "שהייה 35 דק׳ — תואם איתוראן",
+          note: "תעודה סרוקה מגיליון",
         },
         deposits: {
-          bales60002: { delivered: 2, billed: 2 },
+          bales60002: { delivered: 0, billed: 0 },
           pallets60060: { delivered: 0, billed: 0 },
         },
       };

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { SPREADSHEET_ID, TAB_GALYA_ARCHIVE, TAB_TACHOGRAPH } from "./data";
 import type { DeliveryNote, Order, TachographRecord, Yard, AuditStatus } from "./data";
+import p02 from "@/assets/scans/p02.jpg.asset.json";
 import p13 from "@/assets/scans/p13.jpg.asset.json";
-import deliveryNoteJpg from "@/assets/delivery-note.jpg";
 
 export interface SheetSyncState {
   notes: DeliveryNote[];
@@ -77,15 +77,16 @@ function parseItems(text?: string) {
   return items;
 }
 
-function parseCustomer(raw: string) {
-  const m = raw.match(/^(.*?)(?:\s*\((\d+)\))?$/);
+function parseCustomer(raw?: string) {
+  if (!raw) return { customer: "לקוח לא זוהה", customerNo: "---" };
+  const m = raw.match(/^(.*?)(?:\s*\(([^)]+)\))?$/);
   if (m) {
     return {
       customer: (m[1] || raw).trim(),
-      customerNo: m[2] || "600000",
+      customerNo: m[2] ? m[2].trim() : "---",
     };
   }
-  return { customer: raw, customerNo: "600000" };
+  return { customer: raw, customerNo: "---" };
 }
 
 function parseYard(raw?: string): Yard {
@@ -95,10 +96,10 @@ function parseYard(raw?: string): Yard {
 }
 
 function parseDate(raw?: string): string {
-  if (!raw) return "2026-08-17";
+  if (!raw) return new Date().toISOString().split("T")[0];
   const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  return "2026-08-17";
+  return new Date().toISOString().split("T")[0];
 }
 
 function parseDeposits(text?: string) {
@@ -134,7 +135,7 @@ function parseGps(tachText?: string): {
     arrive,
     depart,
     status: isWarn ? "warn" : "ok",
-    note: tachText || "תואם איתוראן וטכוגרף",
+    note: tachText || "סנכרון תואם גיליון",
   };
 }
 
@@ -162,10 +163,14 @@ export async function fetchLiveDeliveriesAndOrders(): Promise<{
 }> {
   let rows: string[][] = [];
   try {
-    rows = await fetchGoogleSheetJson(0);
-  } catch (err) {
-    console.warn("Could not fetch gid=0, attempting tab name:", err);
     rows = await fetchGoogleSheetJson(TAB_GALYA_ARCHIVE);
+  } catch {
+    try {
+      rows = await fetchGoogleSheetJson(0);
+    } catch (err) {
+      console.warn("Could not fetch archive sheet:", err);
+      return { notes: [], orders: [] };
+    }
   }
 
   const archiveRows: {
@@ -199,37 +204,58 @@ export async function fetchLiveDeliveriesAndOrders(): Promise<{
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.length === 0) continue;
-    if (r[0] && r[0].includes("Total Audited Deliveries")) continue;
-    if (r[0] && (r[0].includes("תאריך ויום") || r[0].includes("מספר תעודה"))) continue;
+    // Skip headers
+    if (
+      r[0] &&
+      (r[0].includes("Total Audited") ||
+        r[0].includes("תאריך ויום") ||
+        r[4] === "מספר תעודה" ||
+        r[1] === "שם מסמך מקור (גליה)")
+    ) {
+      continue;
+    }
 
-    if (r[1] && r[1].toLowerCase().includes(".pdf") && r[4] && /^\d+$/.test(String(r[4]).trim())) {
-      archiveRows.push({
-        rawDate: r[0],
-        pdfName: r[1],
-        pdfLink: r[2],
-        countText: r[3],
-        noteId: String(r[4]).trim(),
-        orderId: String(r[5]).trim(),
-        customer: r[6],
-        yard: r[7],
-        driver: r[8],
-        address: r[9],
-        noteDriveLink: r[10],
-        filingStatus: r[11],
-      });
-    } else if (r[0] && /^\d+$/.test(String(r[0]).trim())) {
-      auditRows.push({
-        noteId: String(r[0]).trim(),
-        orderId: String(r[1]).trim(),
-        customer: r[2],
-        itemsText: r[3],
-        handwriting: r[4],
-        depositsText: r[5],
-        returnsText: r[6],
-        tachAudit: r[7],
-        conclusion: r[8],
-        docLink: r[9],
-      });
+    // Row has note identification or pdf
+    const noteId = String(r[4] || "").trim();
+    const pdfName = String(r[1] || "").trim();
+    const rawDate = String(r[0] || "").trim();
+
+    if (noteId || pdfName || rawDate) {
+      const isAuditRow =
+        r[0] && /^\d+$/.test(String(r[0]).trim()) && !r[1]?.toLowerCase().includes(".pdf");
+
+      if (isAuditRow) {
+        auditRows.push({
+          noteId: String(r[0]).trim(),
+          orderId: String(r[1]).trim(),
+          customer: r[2],
+          itemsText: r[3],
+          handwriting: r[4],
+          depositsText: r[5],
+          returnsText: r[6],
+          tachAudit: r[7],
+          conclusion: r[8],
+          docLink: r[9],
+        });
+      } else {
+        const cleanNoteId = noteId || `עמוד-${i + 1}`;
+        const driveLink = r[10] && String(r[10]).startsWith("http") ? String(r[10]).trim() : "";
+
+        archiveRows.push({
+          rawDate: r[0] || "",
+          pdfName: r[1] || "",
+          pdfLink: r[2] || "",
+          countText: r[3] || "",
+          noteId: cleanNoteId,
+          orderId: String(r[5] || "בבדיקה").trim(),
+          customer: r[6] || "לקוח לזיהוי",
+          yard: r[7] || "מחסן 4 החרש 10",
+          driver: r[8] || "חכמת",
+          address: r[9] || "לפי תעודה",
+          noteDriveLink: driveLink,
+          filingStatus: r[11] || "✅ פוצל ותוייק בתיק לקוח",
+        });
+      }
     }
   }
 
@@ -254,28 +280,26 @@ export async function fetchLiveDeliveriesAndOrders(): Promise<{
       signedAt: gps.depart,
       comaxOrder: a.orderId,
       items,
-      scans: a.noteDriveLink ? [a.noteDriveLink] : [deliveryNoteJpg],
+      scans: a.noteDriveLink ? [a.noteDriveLink] : [p02.url],
       driveLink: a.noteDriveLink,
       sourceFileName: a.pdfName,
       sourceFileLink: a.pdfLink,
       filingStatus: a.filingStatus || "✅ פוצל ותוייק בתיק לקוח",
       handwritingNotes: aud?.handwriting || "",
       returnsAndCredits: aud?.returnsText || "",
-      aiConclusion: aud?.conclusion || "תקין",
+      aiConclusion: aud?.conclusion || "תקין (נתון חי מגיליון)",
       gps,
       deposits,
     };
   });
 
   const orders: Order[] = notes.map((n, idx) => {
-    const isCancelled = n.filingStatus.includes("מבוטל") || n.gps.status === "warn";
+    const isCancelled = n.filingStatus?.includes("מבוטל") || n.gps.status === "warn";
     const status: Order["status"] = isCancelled
       ? "פתוחה"
-      : idx < 2
-        ? "בדרך"
-        : idx < 4
-          ? "בהעמסה"
-          : "סופק";
+      : n.comaxOrder === "בבדיקה" || n.customer.includes("לזיהוי")
+        ? "פתוחה"
+        : "סופק";
 
     const phoneNumbers = [
       "052-5551234",
@@ -283,42 +307,36 @@ export async function fetchLiveDeliveriesAndOrders(): Promise<{
       "050-1112233",
       "053-4445566",
       "054-2001928",
-      "052-8889911",
-      "050-7766554",
-      "054-9988776",
-      "052-3344556",
-      "053-9988112",
-    ];
-
-    const windows = [
-      "07:00–09:00",
-      "08:30–10:30",
-      "09:00–11:00",
-      "10:00–12:00",
-      "11:30–13:30",
-      "12:00–14:00",
-      "13:00–15:00",
-      "14:30–16:30",
     ];
 
     return {
-      id: n.comaxOrder,
+      id: n.comaxOrder && n.comaxOrder !== "בבדיקה" ? n.comaxOrder : `ORD-${n.id}`,
       customer: n.customer,
       phone: phoneNumbers[idx % phoneNumbers.length],
       address: n.site,
       date: n.date,
-      window: windows[idx % windows.length],
+      window: "08:30–10:30",
       yard: n.yard,
       driverId: n.driverId,
       status,
       deliveryNoteId: n.id,
-      items: n.items.map((it) => ({
-        name: it.name,
-        qty: it.qty,
-        unit: it.unit,
-        weightKg: it.weightKg,
-        deposit: it.name.includes("בלה") ? 45 : it.name.includes("משטח") ? 60 : undefined,
-      })),
+      items:
+        n.items.length > 0
+          ? n.items.map((it) => ({
+              name: it.name,
+              qty: it.qty,
+              unit: it.unit,
+              weightKg: it.weightKg,
+              deposit: it.name.includes("בלה") ? 45 : it.name.includes("משטח") ? 60 : undefined,
+            }))
+          : [
+              {
+                name: "פריטים לפי סריקת תעודה",
+                qty: 1,
+                unit: "תעודה",
+                weightKg: 0,
+              },
+            ],
     };
   });
 
@@ -329,16 +347,21 @@ export async function fetchLiveTachographs(): Promise<TachographRecord[]> {
   try {
     let rows: string[][] = [];
     try {
-      rows = await fetchGoogleSheetJson("ארכיון_טכוגרף");
-    } catch {
       rows = await fetchGoogleSheetJson(TAB_TACHOGRAPH);
+    } catch {
+      rows = await fetchGoogleSheetJson("ארכיון_טכוגרף");
     }
 
     const tachs: TachographRecord[] = [];
     rows.forEach((r, idx) => {
       if (!r || r.length === 0) return;
-      if (r[0] && (r[0].includes("תאריך") || r[0].includes("Total"))) return;
-      const date = r[0] || "18/10/2026";
+      if (
+        r[0] &&
+        (r[0].includes("תאריך ויום") || r[0].includes("Total") || r[0].includes("תאריך"))
+      ) {
+        return;
+      }
+      const date = r[0] || "19/10/2026";
       const fileName = r[1] || `scan12026-10-14-081059.pdf`;
       const driver = r[2] || "חכמת";
       const truck = r[3] || "615-41-002";
@@ -403,11 +426,14 @@ export async function refreshSheetData(): Promise<SheetSyncState> {
       fetchLiveTachographs(),
     ]);
 
-    const stamp = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const stamp = new Date().toLocaleTimeString("he-IL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const nextState: SheetSyncState = {
       notes,
       orders,
-      tachographs: tachs.length > 0 ? tachs : globalSyncState.tachographs,
+      tachographs: tachs,
       isLoading: false,
       isLive: true,
       lastSync: stamp,
@@ -423,7 +449,11 @@ export async function refreshSheetData(): Promise<SheetSyncState> {
 }
 
 export function useLiveSheetData() {
-  const state = useSyncExternalStore(subscribeToSheetData, getSheetDataSnapshot);
+  const state = useSyncExternalStore(
+    subscribeToSheetData,
+    getSheetDataSnapshot,
+    getSheetDataSnapshot,
+  );
 
   useEffect(() => {
     // Initial fetch if empty

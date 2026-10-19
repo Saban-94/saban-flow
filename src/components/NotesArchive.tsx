@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
-  NOTES,
   auditNote,
   fmtDate,
   ils,
@@ -37,7 +36,7 @@ export function NotesArchive() {
   const [viewMode, setViewMode] = useState<"cards" | "sheet">("cards");
   const { notes: liveNotes, isLoading, isLive, lastSync, refresh } = useLiveSheetData();
 
-  const currentNotes = liveNotes.length > 0 ? liveNotes : NOTES;
+  const currentNotes = liveNotes;
 
   const list = currentNotes.filter((n) =>
     [n.customer, n.id, n.yard, n.date, n.customerNo, n.comaxOrder, n.site].join(" ").includes(q),
@@ -65,7 +64,9 @@ export function NotesArchive() {
               className="flex items-center gap-1.5 rounded-2xl border bg-card px-3 py-2 text-xs font-bold text-foreground transition hover:bg-muted disabled:opacity-50"
               title="רענן נתונים ישירות מהגיליון"
             >
-              <RefreshCw className={`h-3.5 w-3.5 text-primary ${isLoading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 text-primary ${isLoading ? "animate-spin" : ""}`}
+              />
               <span>{isLoading ? "מסנכרן..." : "רענן מגיליון"}</span>
             </button>
             <ScanSplitterModal />
@@ -130,7 +131,39 @@ export function NotesArchive() {
         </div>
 
         {/* View Mode 1: Cards */}
-        {viewMode === "cards" ? (
+        {list.length === 0 ? (
+          <div className="rounded-3xl border bg-card p-12 text-center shadow-card">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 mb-3">
+              <FileText className="h-7 w-7" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">
+              {q ? "לא נמצאו תעודות התואמות לחיפוש" : "אין תעודות משלוח בגיליון כרגע"}
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+              {q
+                ? "נסה לשנות את מילת החיפוש או לנקות את שדה החיפוש."
+                : `המערכת מסונכרנת בזמן אמת מול טאב "${TAB_GALYA_ARCHIVE}". תעודות חדשות שנסרקות ע״י גליה יופיעו כאן מיד.`}
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow transition hover:opacity-95"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+                <span>{isLoading ? "מסנכרן..." : "רענן מגיליון"}</span>
+              </button>
+              {q && (
+                <button
+                  onClick={() => setQ("")}
+                  className="rounded-2xl border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted"
+                >
+                  נקה חיפוש
+                </button>
+              )}
+            </div>
+          </div>
+        ) : viewMode === "cards" ? (
           <div className="space-y-3">
             {list.map((n) => {
               const audit = auditNote(n);

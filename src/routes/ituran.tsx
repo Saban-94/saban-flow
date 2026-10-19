@@ -3,11 +3,10 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   TACHOGRAPH_1310,
-  INITIAL_TACHOGRAPHS,
-  NOTES,
   SPREADSHEET_URL,
   SPREADSHEET_ID,
   TAB_TACHOGRAPH,
+  TAB_GALYA_ARCHIVE,
   ils,
   noteTotal,
 } from "@/lib/data";
@@ -48,18 +47,17 @@ function IturanScreen() {
   const [activeTab, setActiveTab] = useState<"tachograph" | "crossmatch">("tachograph");
   const { tachographs: liveTachs, notes: liveNotes, refresh, isLoading } = useLiveSheetData();
 
-  const currentTachs = liveTachs.length > 0 ? liveTachs : INITIAL_TACHOGRAPHS;
-  const currentNotes = liveNotes.length > 0 ? liveNotes : NOTES;
+  const currentTachs = liveTachs;
+  const currentNotes = liveNotes;
 
   const [tachographs, setTachographs] = useState(currentTachs);
   const [selectedTacho, setSelectedTacho] = useState(currentTachs[0]);
 
-  // Update when liveTachs loads
   useEffect(() => {
-    if (liveTachs.length > 0) {
-      setTachographs(liveTachs);
-      setSelectedTacho((prev) => (prev ? liveTachs.find((t) => t.id === prev.id) || liveTachs[0] : liveTachs[0]));
-    }
+    setTachographs(liveTachs);
+    setSelectedTacho((prev) =>
+      prev ? liveTachs.find((t) => t.id === prev.id) || liveTachs[0] : liveTachs[0],
+    );
   }, [liveTachs]);
 
   const approveTacho = (id: string) => {
@@ -332,54 +330,83 @@ function IturanScreen() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              {NOTES.map((n) => {
-                const driver = n.driverId === "hikmat" ? "crane" : "flatbed";
-                const match = crossMatch(
-                  { site: n.site, signedAt: n.signedAt },
-                  driver,
-                  n.driverId === "hikmat" ? "615-41-002" : "651-51-701",
-                  SAMPLE_STOPS,
-                );
-                return (
-                  <div
-                    key={n.id}
-                    className="flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-card sm:flex-row sm:items-center sm:justify-between"
+            {currentNotes.length === 0 ? (
+              <div className="rounded-3xl border bg-card p-12 text-center shadow-card">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+                  <Satellite className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground">
+                  אין תעודות משלוח בגיליון להצלבה כרגע
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+                  המערכת מוצלבת מול טאב {TAB_GALYA_ARCHIVE}. תעודות שנסרקות ע״י גליה יופיעו כאן
+                  אוטומטית.
+                </p>
+                <div className="mt-5 flex justify-center">
+                  <button
+                    onClick={() =>
+                      refresh()
+                        .then(() => toast.success("הנתונים סונכרנו מגיליון סבן 🟢"))
+                        .catch(() => toast.error("שגיאה בסנכרון"))
+                    }
+                    disabled={isLoading}
+                    className="flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow transition hover:opacity-95"
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-bold text-foreground">ת.מ. {n.id}</span>
-                        <span>·</span>
-                        <span>{n.customer}</span>
-                        <span>·</span>
-                        <span>{n.site}</span>
+                    <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+                    <span>{isLoading ? "מסנכרן..." : "רענן מגיליון"}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {currentNotes.map((n) => {
+                  const driver = n.driverId === "hikmat" ? "crane" : "flatbed";
+                  const match = crossMatch(
+                    { site: n.site, signedAt: n.signedAt },
+                    driver,
+                    n.driverId === "hikmat" ? "615-41-002" : "651-51-701",
+                    SAMPLE_STOPS,
+                  );
+                  return (
+                    <div
+                      key={n.id}
+                      className="flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-card sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="font-bold text-foreground">ת.מ. {n.id}</span>
+                          <span>·</span>
+                          <span>{n.customer}</span>
+                          <span>·</span>
+                          <span>{n.site}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="font-bold text-primary">{ils(noteTotal(n))}</span>
+                          <span>
+                            שעת חתימה באתר: <b>{n.signedAt}</b>
+                          </span>
+                          <span>
+                            זמני איתוראן: {n.gps.arrive} ➔ {n.gps.depart}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{n.gps.note}</div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="font-bold text-primary">{ils(noteTotal(n))}</span>
-                        <span>
-                          שעת חתימה באתר: <b>{n.signedAt}</b>
-                        </span>
-                        <span>
-                          זמני איתוראן: {n.gps.arrive} ➔ {n.gps.depart}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">{n.gps.note}</div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                      <StatusPill s={n.gps.status} />
-                      <Link
-                        to="/notes/$id"
-                        params={{ id: n.id }}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-                      >
-                        <Layers className="h-3.5 w-3.5" /> מעבר לתעודה
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        <StatusPill s={n.gps.status} />
+                        <Link
+                          to="/notes/$id"
+                          params={{ id: n.id }}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                        >
+                          <Layers className="h-3.5 w-3.5" /> מעבר לתעודה
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

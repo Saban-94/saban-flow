@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/AppShell";
 import noa from "@/assets/noa.jpg";
-import { NOTES, ORDERS, DRIVERS, INITIAL_TACHOGRAPHS } from "@/lib/data";
+import { DRIVERS } from "@/lib/data";
+import { useLiveSheetData } from "@/lib/sheet-data";
 import { Send, Sparkles, CheckCheck, Truck, FileText, Gauge } from "lucide-react";
 
 export const Route = createFileRoute("/chat")({
@@ -29,11 +30,12 @@ type Message = {
 
 function ChatScreen() {
   const [input, setInput] = useState("");
+  const { notes: liveNotes, orders: liveOrders, tachographs: liveTachs } = useLiveSheetData();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "m1",
       sender: "noa",
-      text: "היי ראמי והראל! נועה כאן ❤️\nכל נתוני הגיליון, סריקות גליה ודיסקית הטכוגרף של חכמת (138 ק״מ) מעודכנים ומסונכרנים. במה תרצו שנעבור כעת?",
+      text: "היי ראמי והראל! נועה כאן ❤️\nכל נתוני הגיליון, סריקות גליה ודיסקית הטכוגרף מסונכרנים בזמן אמת מול Google Sheets. במה תרצו שנעבור כעת?",
       time: "08:15",
     },
   ]);
@@ -62,25 +64,37 @@ function ChatScreen() {
       if (
         t.includes("טכוגרף") ||
         t.includes("חכמת") ||
+        t.includes("עלי") ||
         t.includes("קילומטר") ||
         t.includes('ק"מ')
       ) {
-        const tacho = INITIAL_TACHOGRAPHS[0];
-        reply = `🚚 **דוח טכוגרף של חכמת (משאית 615-41-002):**\n• מד אוץ: ${tacho?.kmStart.toLocaleString()} ➔ ${tacho?.kmEnd.toLocaleString()}\n• סה״כ יומי: **${tacho?.kmTotal} ק״מ**\n• זמן עבודת מנוף ב-PTO: **${tacho?.ptoHours} שעות**\n• אימות איתוראן: **99.4% תואם ✅**\nעמוד 13 בסריקה של גליה נבדק ואושר!`;
-      } else if (
-        t.includes("הזמנ") ||
-        t.includes("לקוח") ||
-        t.includes("אורבר") ||
-        t.includes("אזולא")
-      ) {
-        reply = `📦 **סטטוס הזמנות פתוחות מגיליון נועה:**\nכרגע יש **${ORDERS.length} הזמנות** פעילות.\n• הזמנה 37901 (ש. לוי שיפוצים) — בהעמסה במחסן 4 החרש (משאית מנוף של חכמת, 3.8 טון).\n• הזמנה 37905 (מגדלי הים) — פתוחה במחסן 1 התלמיד עבור עלי.`;
+        const tacho = liveTachs[0];
+        if (tacho) {
+          reply = `🚚 **דוח טכוגרף מגיליון (${tacho.driverName}, משאית ${tacho.truckId}):**\n• תאריך: ${tacho.date}\n• קובץ מקור: ${tacho.originalFileName}\n• קילומטראז': **${tacho.kmTotal} ק״מ**\n• זמן עבודת מנוף ב-PTO: **${tacho.ptoHours} שעות**\n• אימות: **${tacho.ituranMatch}**\nנבדק מול הגיליון!`;
+        } else {
+          reply = `🚚 **דוח טכוגרף:**\nכרגע אין דיסקיות טכוגרף בטאב "ארכיון_טכוגרף" בגיליון. ברגע שגליה סורקת את העמוד האחרון (N), הנתונים ייקלטו כאן מיד.`;
+        }
+      } else if (t.includes("הזמנ") || t.includes("לקוח") || t.includes("הפצה")) {
+        if (liveOrders.length > 0) {
+          const sample = liveOrders
+            .slice(0, 3)
+            .map((o) => `• הזמנה ${o.id} (${o.customer}) — סטטוס: ${o.status}, ${o.yard}`)
+            .join("\n");
+          reply = `📦 **סטטוס הזמנות חיות מגיליון:**\nכרגע יש **${liveOrders.length} הזמנות** פעילות בגיליון:\n${sample}`;
+        } else {
+          reply = `📦 **סטטוס הזמנות חיות:**\nאין הזמנות פתוחות כרגע בגיליון. הזמנות שמוזנות בקומקס או נסרקות יופיעו כאן מיד.`;
+        }
       } else if (
         t.includes("תעוד") ||
         t.includes("אישור") ||
         t.includes("הראל") ||
         t.includes("ראמי")
       ) {
-        reply = `📄 **תמונת תעודות משלוח מהסריקה המרוכזת:**\nנקלטו 7 תעודות משלוח מפוצלות:\n• 4 תעודות כבר חתומות ע״י ראמי וממתינות לאישור סופי של הראל 👑.\n• נבדקו פקדונות 1:1 על בלות (60002) ומשטחי עץ (60060) — ללא פערים!`;
+        if (liveNotes.length > 0) {
+          reply = `📄 **תמונת תעודות משלוח מגיליון סבן:**\nנקלטו **${liveNotes.length} תעודות משלוח** חי מגיליון.\nכל תעודה מקושרת לסריקה המקורית של גליה ומאומתת מול הגיליון!`;
+        } else {
+          reply = `📄 **תמונת תעודות משלוח:**\nאין תעודות משלוח בגיליון כרגע. סריקות PDF חדשות שיגיעו למייל יפוצלו ויוזרקו לגיליון אוטומטית.`;
+        }
       } else {
         reply = `הבנתי אותך! המערכת בודקת את הנתונים בזמן אמת מול גיליון בדיקת תעודות משלוח ומסד איתוראן. כל תעודה חתומה מתעדכנת ישירות בתיקיית הלקוח ב-Drive.`;
       }
