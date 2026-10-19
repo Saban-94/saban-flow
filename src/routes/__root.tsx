@@ -14,8 +14,6 @@ import { AppShell } from "@/components/AppShell";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { enableAudioOnFirstTouch, setupOneSignalPushListener } from "../lib/audio-alerts";
-import { flushPendingApprovals } from "../lib/api";
 
 function NotFoundComponent() {
   return (
@@ -67,27 +65,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#1f3a33" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "SabanFlow" },
-      { title: "Saban Flow — נועה ח. סבן לוגיסטיקה" },
-      {
-        name: "description",
-        content: "מערכת PWA לבקרת תעודות משלוח, ניהול פקדונות והצלבת איתוראן — ח. סבן חומרי בניין.",
-      },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { title: "נועה — ח. סבן לוגיסטיקה" },
+      { name: "description", content: "מערכת בקרת תעודות משלוח ללא נייר של ח. סבן חומרי בניין." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.json" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Rubik:wght@500;700;800&display=swap",
       },
-      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -113,29 +105,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
-  useEffect(() => {
-    // 1. Enable audio context on first user interaction for iOS / Android
-    enableAudioOnFirstTouch();
-
-    // 2. Setup OneSignal push foreground notification listener
-    setupOneSignalPushListener();
-
-    // 3. Register service worker for offline support and PWA compliance
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => console.log("[PWA] Service worker registered successfully:", reg.scope))
-        .catch((err) => console.warn("[PWA] Service worker registration error:", err));
-    }
-
-    // 4. Flush any offline-queued approvals when connected
-    void flushPendingApprovals();
-    window.addEventListener("online", () => {
-      void flushPendingApprovals();
-    });
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <AppShell>

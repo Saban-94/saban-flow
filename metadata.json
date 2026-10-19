@@ -1,6 +1,5 @@
 {
-  "name": "Saban Flow",
-  "description": "Logistics & paperless delivery note audit engine with Ituran GPS verification and Noa AI for H. Saban Building Materials Ltd.",
-  "permissions": [],
-  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "נועה — ח. סבן לוגיסטיקה",
+  "description": "מערכת בקרת תעודות משלוח ללא נייר של ח. סבן חומרי בניין (1994) בע״מ.",
+  "capabilities": []
 }

@@ -14,10 +14,7 @@ import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IturanRouteImport } from './routes/ituran'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as OrdersRouteImport } from './routes/orders'
-import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as NotesIdRouteImport } from './routes/notes.$id'
-import { Route as CustomersIdRouteImport } from './routes/customers.$id'
-import { Route as CanvasRouteImport } from './routes/canvas'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -44,25 +41,10 @@ const OrdersRoute = OrdersRouteImport.update({
   path: '/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CustomersRoute = CustomersRouteImport.update({
-  id: '/customers',
-  path: '/customers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CanvasRoute = CanvasRouteImport.update({
-  id: '/canvas',
-  path: '/canvas',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const NotesIdRoute = NotesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => NotesRoute,
-} as any)
-const CustomersIdRoute = CustomersIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => CustomersRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -71,10 +53,7 @@ export interface FileRoutesByFullPath {
   '/ituran': typeof IturanRoute
   '/notes': typeof NotesRouteWithChildren
   '/orders': typeof OrdersRoute
-  '/customers': typeof CustomersRouteWithChildren
-  '/canvas': typeof CanvasRoute
   '/notes/$id': typeof NotesIdRoute
-  '/customers/$id': typeof CustomersIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,10 +61,7 @@ export interface FileRoutesByTo {
   '/ituran': typeof IturanRoute
   '/notes': typeof NotesRouteWithChildren
   '/orders': typeof OrdersRoute
-  '/customers': typeof CustomersRouteWithChildren
-  '/canvas': typeof CanvasRoute
   '/notes/$id': typeof NotesIdRoute
-  '/customers/$id': typeof CustomersIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,45 +70,15 @@ export interface FileRoutesById {
   '/ituran': typeof IturanRoute
   '/notes': typeof NotesRouteWithChildren
   '/orders': typeof OrdersRoute
-  '/customers': typeof CustomersRouteWithChildren
-  '/canvas': typeof CanvasRoute
   '/notes/$id': typeof NotesIdRoute
-  '/customers/$id': typeof CustomersIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/chat'
-    | '/ituran'
-    | '/notes'
-    | '/orders'
-    | '/customers'
-    | '/canvas'
-    | '/notes/$id'
-    | '/customers/$id'
+  fullPaths: '/' | '/chat' | '/ituran' | '/notes' | '/orders' | '/notes/$id'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/chat'
-    | '/ituran'
-    | '/notes'
-    | '/orders'
-    | '/customers'
-    | '/canvas'
-    | '/notes/$id'
-    | '/customers/$id'
+  to: '/' | '/chat' | '/ituran' | '/notes' | '/orders' | '/notes/$id'
   id:
-    | '__root__'
-    | '/'
-    | '/chat'
-    | '/ituran'
-    | '/notes'
-    | '/orders'
-    | '/customers'
-    | '/canvas'
-    | '/notes/$id'
-    | '/customers/$id'
+    '__root__' | '/' | '/chat' | '/ituran' | '/notes' | '/orders' | '/notes/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,8 +87,6 @@ export interface RootRouteChildren {
   IturanRoute: typeof IturanRoute
   NotesRoute: typeof NotesRouteWithChildren
   OrdersRoute: typeof OrdersRoute
-  CustomersRoute: typeof CustomersRouteWithChildren
-  CanvasRoute: typeof CanvasRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,33 +126,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/customers': {
-      id: '/customers'
-      path: '/customers'
-      fullPath: '/customers'
-      preLoaderRoute: typeof CustomersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/canvas': {
-      id: '/canvas'
-      path: '/canvas'
-      fullPath: '/canvas'
-      preLoaderRoute: typeof CanvasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/notes/$id': {
       id: '/notes/$id'
       path: '/$id'
       fullPath: '/notes/$id'
       preLoaderRoute: typeof NotesIdRouteImport
       parentRoute: typeof NotesRoute
-    }
-    '/customers/$id': {
-      id: '/customers/$id'
-      path: '/$id'
-      fullPath: '/customers/$id'
-      preLoaderRoute: typeof CustomersIdRouteImport
-      parentRoute: typeof CustomersRoute
     }
   }
 }
@@ -223,25 +146,12 @@ const NotesRouteChildren: NotesRouteChildren = {
 
 const NotesRouteWithChildren = NotesRoute._addFileChildren(NotesRouteChildren)
 
-interface CustomersRouteChildren {
-  CustomersIdRoute: typeof CustomersIdRoute
-}
-
-const CustomersRouteChildren: CustomersRouteChildren = {
-  CustomersIdRoute: CustomersIdRoute,
-}
-
-const CustomersRouteWithChildren =
-  CustomersRoute._addFileChildren(CustomersRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
   IturanRoute: IturanRoute,
   NotesRoute: NotesRouteWithChildren,
   OrdersRoute: OrdersRoute,
-  CustomersRoute: CustomersRouteWithChildren,
-  CanvasRoute: CanvasRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
